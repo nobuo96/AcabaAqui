@@ -1,0 +1,4 @@
+com\acabaaqui\model\PerfilUser.class
+com\acabaaqui\model\User.class
+com\acabaaqui\persistence\UserRepository.class
+com\acabaaqui\resources\UserResource.class
