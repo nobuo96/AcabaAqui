@@ -1,0 +1,375 @@
+Atue como um desenvolvedor backend Java sênior especializado em Quarkus,
+Maven, APIs REST, MySQL, autenticação, OAuth 2.0/OIDC e segurança.
+ 
+Estou desenvolvendo o backend de um aplicativo chamado AcabaAqui.
+ 
+==================================================
+1. CONTEXTO DO PROJETO
+==================================================
+ 
+O AcabaAqui é um marketplace mobile que conecta clientes a prestadores
+de serviços especializados em acabamento de construção civil, como:
+ 
+- Forros de gesso e drywall
+- Divisórias
+- Pisos
+- Porcelanato
+- Pintura
+- Outros serviços de acabamento residencial/comercial
+ 
+Frontend:
+- React Native
+ 
+Backend:
+- Java
+- Quarkus
+- Maven
+- API REST
+ 
+Banco:
+- MySQL
+ 
+Nesta etapa quero implementar SOMENTE cadastro, autenticação,
+autorização e gerenciamento inicial da conta.
+ 
+==================================================
+2. TIPOS DE USUÁRIO
+==================================================
+ 
+Existem três perfis:
+ 
+CLIENTE
+- Solicita serviços
+- Cadastra múltiplos endereços
+- Recebe orçamentos
+- Contrata prestadores
+ 
+PRESTADOR
+- Cadastra os serviços que realiza
+- Cadastra sua localização
+- Define sua área de atendimento
+- Recebe solicitações compatíveis com sua região
+ 
+ADMINISTRADOR
+- Gerencia a plataforma
+- Possui endpoints administrativos protegidos
+ 
+Um mesmo aplicativo React Native será utilizado pelos perfis.
+O backend será responsável pela autorização.
+ 
+==================================================
+3. FORMAS DE AUTENTICAÇÃO
+==================================================
+ 
+Precisamos suportar:
+ 
+1. Email + senha
+2. Google
+3. Facebook
+ 
+Para email/senha:
+ 
+- A senha NUNCA pode ser armazenada como texto puro.
+- Utilize algoritmo moderno e adequado para password hashing.
+- Não implemente criptografia reversível de senha.
+- Explique a estratégia utilizada para hash e salt.
+- Se o algoritmo escolhido já incorporar salt automaticamente no hash,
+evite armazenar informação redundante desnecessariamente.
+ 
+Para login social:
+ 
+- Utilize OAuth 2.0 / OpenID Connect quando aplicável.
+- O backend deve validar a identidade/tokens enviados pelo provedor.
+- Nunca confiar apenas no ID ou email recebido do frontend.
+- Não armazenar access tokens sociais persistentemente sem necessidade.
+ 
+==================================================
+4. BANCO DE DADOS
+==================================================
+ 
+Atualmente estou considerando as seguintes tabelas conceituais:
+ 
+usuarios
+- usuario_id
+- nome
+- email
+- perfil
+- telefone
+- ativo
+- data_criacao
+- ultima_atualizacao
+ 
+credenciais_usuario
+- credencial_id
+- usuario_id
+- senha_hash
+- dados necessários para validação segura da senha
+- data_criacao
+- ultima_atualizacao
+- ativo
+ 
+login_social
+- login_id
+- usuario_id
+- provedor
+- social_id
+- data_criacao
+- ultimo_login
+ 
+Não considere esse modelo definitivo.
+ 
+Analise-o e proponha alterações caso exista uma modelagem mais segura
+ou adequada.
+ 
+Um usuário poderá futuramente vincular mais de uma forma de login.
+ 
+Exemplo:
+ 
+usuario 15
+├── email/senha
+├── Google
+└── Facebook
+ 
+O email deve ser único considerando normalização adequada.
+ 
+Crie também migrations SQL compatíveis com MySQL.
+ 
+==================================================
+5. ENDPOINTS MÍNIMOS
+==================================================
+ 
+Projete pelo menos:
+ 
+POST /api/auth/register
+Cadastro com email e senha.
+ 
+POST /api/auth/login
+Login com email e senha.
+ 
+POST /api/auth/google
+Autenticação utilizando Google.
+ 
+POST /api/auth/facebook
+Autenticação utilizando Facebook.
+ 
+POST /api/auth/refresh
+Renovação da autenticação, caso a arquitetura escolhida utilize
+refresh tokens.
+ 
+POST /api/auth/logout
+Encerramento/invalidação da sessão quando aplicável.
+ 
+GET /api/users/me
+Obtém informações do usuário autenticado.
+ 
+PUT /api/users/me
+Atualiza informações básicas do perfil.
+ 
+Crie endpoints adicionais somente quando forem realmente necessários.
+ 
+==================================================
+6. CADASTRO
+==================================================
+ 
+No cadastro tradicional devem existir pelo menos:
+ 
+nome
+email
+senha
+perfil
+ 
+O usuário não pode selecionar perfil ADMINISTRADOR por meio da API
+pública de cadastro.
+ 
+Somente:
+ 
+CLIENTE
+PRESTADOR
+ 
+Administradores devem ser criados por processo administrativo seguro.
+ 
+Validações mínimas:
+ 
+- nome obrigatório
+- email obrigatório e válido
+- email único
+- senha seguindo política de segurança
+- perfil obrigatório
+- somente CLIENTE ou PRESTADOR no cadastro público
+- impedir usuários desativados de autenticar
+ 
+==================================================
+7. AUTORIZAÇÃO
+==================================================
+ 
+Implemente controle de acesso baseado em papéis (RBAC):
+ 
+CLIENTE
+PRESTADOR
+ADMINISTRADOR
+ 
+Exemplos:
+ 
+/api/auth/** público
+/api/users/me autenticado
+/api/clientes/** CLIENTE
+/api/prestadores/** PRESTADOR
+/api/admin/** ADMINISTRADOR
+ 
+Utilize os recursos apropriados do Quarkus para proteção dos endpoints.
+ 
+==================================================
+8. TOKENS
+==================================================
+ 
+Proponha uma arquitetura segura para comunicação entre:
+ 
+React Native
+↓
+API Quarkus
+↓
+MySQL
+ 
+Explique se será utilizado:
+ 
+- JWT
+- Access Token
+- Refresh Token
+ 
+Defina também:
+ 
+- expiração
+- claims essenciais
+- transporte via Authorization: Bearer
+- validação
+- renovação
+- logout
+ 
+Não coloque senha, dados sensíveis ou informações desnecessárias
+dentro do JWT.
+ 
+==================================================
+9. ARQUITETURA DO CÓDIGO
+==================================================
+ 
+Organize o projeto aproximadamente desta forma:
+ 
+resource/
+service/
+repository/
+entity/
+dto/
+security/
+exception/
+ 
+Não exponha entidades JPA diretamente pela API.
+ 
+Utilize DTOs para requests e responses.
+ 
+Utilize Hibernate ORM/Panache quando fizer sentido.
+ 
+Implemente tratamento centralizado de exceções.
+ 
+As respostas HTTP devem utilizar códigos adequados, por exemplo:
+ 
+200 OK
+201 Created
+400 Bad Request
+401 Unauthorized
+403 Forbidden
+404 Not Found
+409 Conflict
+ 
+==================================================
+10. SEGURANÇA
+==================================================
+ 
+Considere pelo menos:
+ 
+- Password hashing seguro
+- Salt adequado
+- Proteção contra enumeração de usuários
+- Validação de entrada
+- RBAC
+- JWT/token validation
+- CORS
+- Secrets fora do código-fonte
+- Rate limiting, se aplicável
+- Logs de autenticação sem registrar senhas ou tokens
+- Prevenção contra criação pública de administradores
+ 
+Nunca desenvolva um sistema de OAuth improvisado.
+ 
+Utilize bibliotecas e recursos oficiais ou consolidados.
+ 
+==================================================
+11. O QUE QUERO COMO RESPOSTA
+==================================================
+ 
+Primeiro apresente:
+ 
+1. Arquitetura proposta
+2. Fluxo de cadastro
+3. Fluxo de login tradicional
+4. Fluxo Google/Facebook
+5. Fluxo de autorização
+6. Modelo final das tabelas
+7. Lista completa dos endpoints
+ 
+Depois apresente a implementação.
+ 
+Gere:
+ 
+- pom.xml/dependências necessárias
+- application.properties
+- Entities
+- DTOs
+- Repositories
+- Services
+- Resources REST
+- configuração de segurança
+- implementação de password hashing
+- geração/validação dos tokens
+- migrations SQL MySQL
+- tratamento de exceções
+- validações
+- exemplos de requests/responses
+ 
+Informe claramente o nome e caminho de cada arquivo antes do código.
+ 
+Não use pseudocódigo.
+ 
+O código deve ser executável e compatível com uma versão atual e
+estável do Quarkus.
+ 
+Não implemente ainda:
+- contratação de serviços
+- orçamento
+- pagamentos
+- chat
+- avaliações
+- garantia
+- disputas
+ 
+Esses módulos serão desenvolvidos posteriormente.
+ 
+==================================================
+12. RESULTADO ESPERADO
+==================================================
+ 
+Ao final eu devo conseguir:
+ 
+1. Criar o banco MySQL.
+2. Executar o backend com Maven/Quarkus.
+3. Cadastrar um CLIENTE.
+4. Cadastrar um PRESTADOR.
+5. Fazer login por email/senha.
+6. Fazer autenticação social.
+7. Receber autenticação/token válido.
+8. Consultar GET /api/users/me.
+9. Bloquear acesso sem autenticação.
+10. Bloquear CLIENTE em endpoint de PRESTADOR.
+11. Bloquear PRESTADOR em endpoint de ADMINISTRADOR.
+12. Testar tudo utilizando Postman ou Insomnia.
+ 
+Explique também como executar e testar o projeto localmente no Windows.
