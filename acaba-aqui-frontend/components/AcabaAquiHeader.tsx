@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface AcabaAquiHeaderProps {
     title?: string;
@@ -8,23 +9,28 @@ interface AcabaAquiHeaderProps {
 
 export function AcabaAquiHeader({ title, backButton = false, onBackPress }: AcabaAquiHeaderProps) {
     return (
-        <View style={styles.headerContainer}>
-            {backButton ? (
-                <Pressable onPress={onBackPress} style={styles.backButton}>
-                    <Text style={styles.buttonText}>←</Text>
-                </Pressable>
-            ) : (
+        <SafeAreaView edges={['top']} style={styles.safeArea}>
+            <View style={styles.headerContainer}>
+                {backButton ? (
+                    <Pressable onPress={onBackPress} style={styles.backButton}>
+                        <Text style={styles.buttonText}>←</Text>
+                    </Pressable>
+                ) : (
+                    <View style={styles.placeholder} />
+                )}
+
+                <Text style={styles.title}>{title ?? 'Título'}</Text>
+
                 <View style={styles.placeholder} />
-            )}
-
-            <Text style={styles.title}>{title ?? 'Título'}</Text>
-
-            <View style={styles.placeholder} />
-        </View>
+            </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+        backgroundColor: '#fff',
+    },
     headerContainer: {
         width: '100%',
         flexDirection: 'row',

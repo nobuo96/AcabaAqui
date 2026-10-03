@@ -9,6 +9,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+
 @ApplicationScoped
 public class UserService {
 
@@ -25,11 +28,35 @@ public class UserService {
         }
 
         user.setAtivo(true);
+        user.setEmailVerificado(true);
         repository.adicionarUsuario(user);
         credential.setUsuarioId(user.getId());
         credential.setAtivo(true);
         credentialRepository.adicionar(credential);
 
+        return user;
+    }
+
+    @Transactional
+    public User atualizarDadosPessoais(Integer id, String nome, String telefone, LocalDate dataNascimento) {
+        if (nome == null || nome.isBlank() || nome.trim().length() > 100) {
+            throw new IllegalArgumentException("Informe um nome válido de até 100 caracteres.");
+        }
+        if (telefone == null || telefone.isBlank() || telefone.trim().length() > 20) {
+            throw new IllegalArgumentException("Informe um telefone válido de até 20 caracteres.");
+        }
+        if (dataNascimento != null && dataNascimento.isAfter(LocalDate.now(ZoneOffset.UTC))) {
+            throw new IllegalArgumentException("A data de nascimento não pode ser futura.");
+        }
+
+        User user = repository.buscarUsuarioPorId(id);
+        if (user == null) {
+            return null;
+        }
+
+        user.setNome(nome.trim());
+        user.setTelefone(telefone.trim());
+        user.setDataNascimento(dataNascimento);
         return user;
     }
 

@@ -1,8 +1,10 @@
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\AlgoritmoCredential.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\PasswordResetChallenge.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\PendingEmailRegistration.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\PerfilUser.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\User.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\UserCredential.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\PasswordResetChallengeRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\PendingEmailRegistrationRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\UserCredentialRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\UserRepository.java
@@ -12,5 +14,6 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\secur
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\AuthService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\EmailVerificationService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\PasswordHasher.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\PasswordResetService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\UserService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\VerificationCodeService.java

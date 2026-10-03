@@ -22,5 +22,10 @@ class VerificationCodeServiceTest {
         assertTrue(codeService.verificar(email, code, hmac));
         assertFalse(codeService.verificar("outra@example.com", code, hmac));
         assertFalse(codeService.verificar(email, "000000", hmac));
+        assertFalse(codeService.verificar("password-reset", email, code, hmac));
+
+        String resetHmac = codeService.calcularHmac("password-reset", email, code);
+        assertTrue(codeService.verificar("password-reset", email, code, resetHmac));
+        assertFalse(codeService.verificar(email, code, resetHmac));
     }
 }

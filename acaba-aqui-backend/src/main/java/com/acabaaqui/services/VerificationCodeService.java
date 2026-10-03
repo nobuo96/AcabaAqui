@@ -35,10 +35,18 @@ public class VerificationCodeService {
     }
 
     public String calcularHmac(String email, String code) {
+        return calcularHmacDoConteudo(email + ":" + code);
+    }
+
+    public String calcularHmac(String purpose, String email, String code) {
+        return calcularHmacDoConteudo(purpose + ":" + email + ":" + code);
+    }
+
+    private String calcularHmacDoConteudo(String content) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(secret, "HmacSHA256"));
-            byte[] digest = mac.doFinal((email + ":" + code).getBytes(StandardCharsets.UTF_8));
+            byte[] digest = mac.doFinal(content.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (GeneralSecurityException exception) {
             throw new IllegalStateException("Não foi possível proteger o código de verificação", exception);
@@ -46,7 +54,18 @@ public class VerificationCodeService {
     }
 
     public boolean verificar(String email, String code, String expectedHmac) {
-        byte[] actual = calcularHmac(email, code).getBytes(StandardCharsets.US_ASCII);
+        return compararHmac(calcularHmac(email, code), expectedHmac);
+    }
+
+    public boolean verificar(String purpose, String email, String code, String expectedHmac) {
+        return compararHmac(calcularHmac(purpose, email, code), expectedHmac);
+    }
+
+    private boolean compararHmac(String actualHmac, String expectedHmac) {
+        if (expectedHmac == null) {
+            return false;
+        }
+        byte[] actual = actualHmac.getBytes(StandardCharsets.US_ASCII);
         byte[] expected = expectedHmac.getBytes(StandardCharsets.US_ASCII);
         return java.security.MessageDigest.isEqual(expected, actual);
     }

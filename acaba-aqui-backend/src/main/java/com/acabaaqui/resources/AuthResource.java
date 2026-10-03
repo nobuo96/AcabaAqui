@@ -3,6 +3,7 @@ package com.acabaaqui.resources;
 import com.acabaaqui.model.User;
 import com.acabaaqui.services.AuthService;
 import com.acabaaqui.services.EmailVerificationService;
+import com.acabaaqui.services.PasswordResetService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
@@ -21,6 +22,9 @@ public class AuthResource {
 
     @Inject
     EmailVerificationService emailVerificationService;
+
+    @Inject
+    PasswordResetService passwordResetService;
 
     @POST
     @Path("/login")
@@ -101,6 +105,65 @@ public class AuthResource {
                 authService.getDuracaoTokenSegundos())).build();
     }
 
+    @POST
+    @Path("/password-reset/request")
+    public Response solicitarRedefinicao(EmailRequest request) {
+        if (request == null || request.email() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new MessageResponse("Informe um e-mail válido.")).build();
+        }
+
+        try {
+            passwordResetService.solicitar(request.email());
+        } catch (IllegalArgumentException exception) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new MessageResponse(exception.getMessage())).build();
+        }
+
+        return Response.accepted(new MessageResponse(
+                "Se houver uma conta elegível, enviaremos instruções para o e-mail informado.")).build();
+    }
+
+    @POST
+    @Path("/password-reset/resend")
+    public Response reenviarRedefinicao(EmailRequest request) {
+        if (request == null || request.email() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new MessageResponse("Informe um e-mail válido.")).build();
+        }
+
+        try {
+            passwordResetService.reenviar(request.email());
+        } catch (IllegalArgumentException exception) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new MessageResponse(exception.getMessage())).build();
+        }
+
+        return Response.accepted(new MessageResponse(
+                "Se houver uma solicitação ativa, enviaremos um novo código para o e-mail informado.")).build();
+    }
+
+    @POST
+    @Path("/password-reset/confirm")
+    public Response confirmarRedefinicao(PasswordResetRequest request) {
+        if (request == null || request.email() == null || request.code() == null || request.newPassword() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new MessageResponse("E-mail, código e nova senha são obrigatórios.")).build();
+        }
+
+        try {
+            if (!passwordResetService.confirmar(request.email(), request.code(), request.newPassword())) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new MessageResponse("Código inválido ou expirado.")).build();
+            }
+        } catch (IllegalArgumentException exception) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new MessageResponse(exception.getMessage())).build();
+        }
+
+        return Response.ok(new MessageResponse("Senha redefinida. Entre novamente com a nova senha.")).build();
+    }
+
     public record LoginRequest(String email, String senha) { }
 
     public record RegistrationRequest(String nome, String email, String telefone,
@@ -109,6 +172,8 @@ public class AuthResource {
     public record EmailRequest(String email) { }
 
     public record VerificationRequest(String email, String code) { }
+
+    public record PasswordResetRequest(String email, String code, String newPassword) { }
 
     public record MessageResponse(String message) { }
 

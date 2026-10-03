@@ -1,0 +1,24 @@
+-- -- Aplicar manualmente no schema correto antes de iniciar a nova versao do backend.
+-- -- Nao executamos este DDL automaticamente; requer permissao de ALTER/CREATE no MySQL.
+--
+-- ALTER TABLE usuarios
+--     ADD COLUMN email_verificado BOOLEAN NOT NULL DEFAULT FALSE;
+--
+-- ALTER TABLE credenciais_usuario
+--     ADD COLUMN versao_token INT NOT NULL DEFAULT 0;
+--
+-- CREATE TABLE redefinicao_senha (
+--     redefinicao_id INT AUTO_INCREMENT PRIMARY KEY,
+--     usuario_id INT NOT NULL,
+--     codigo_hmac VARCHAR(64) NOT NULL,
+--     criado_em DATETIME NOT NULL,
+--     expira_em DATETIME NOT NULL,
+--     ultimo_envio_em DATETIME NOT NULL,
+--     inicio_janela_envio_em DATETIME NOT NULL,
+--     tentativas INT NOT NULL DEFAULT 0,
+--     envios_na_janela INT NOT NULL DEFAULT 1,
+--     CONSTRAINT uq_redefinicao_usuario UNIQUE (usuario_id),
+--     CONSTRAINT fk_redefinicao_usuario FOREIGN KEY (usuario_id)
+--         REFERENCES usuarios(usuario_id) ON DELETE CASCADE,
+--     INDEX idx_redefinicao_expira (expira_em)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

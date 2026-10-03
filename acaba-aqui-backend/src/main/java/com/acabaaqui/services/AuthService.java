@@ -53,6 +53,11 @@ public class AuthService {
     }
 
     public String gerarToken(User user) {
+        UserCredential credential = credentialRepository.buscarPorUsuarioId(user.getId());
+        if (credential == null || Boolean.FALSE.equals(credential.getAtivo())) {
+            throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+        }
+
         Instant issuedAt = Instant.now();
         return Jwts.builder()
                 .subject(user.getId().toString())
@@ -60,6 +65,7 @@ public class AuthService {
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(issuedAt.plusSeconds(tokenDurationSeconds)))
                 .claim("roles", List.of(user.getPerfil().toString()))
+                .claim("credentialVersion", credential.getVersaoToken())
                 .signWith(signingKey())
                 .compact();
     }
@@ -82,12 +88,21 @@ public class AuthService {
     }
 
     public Claims validarToken(String token) {
-        return Jwts.parser()
+        Claims claims = Jwts.parser()
                 .verifyWith(signingKey())
                 .requireIssuer(jwtIssuer)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+
+        Integer userId = Integer.valueOf(claims.getSubject());
+        UserCredential credential = credentialRepository.buscarPorUsuarioId(userId);
+        Integer tokenVersion = claims.get("credentialVersion", Integer.class);
+        if (credential == null || Boolean.FALSE.equals(credential.getAtivo())
+                || tokenVersion == null || !tokenVersion.equals(credential.getVersaoToken())) {
+            throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+        }
+        return claims;
     }
 
     private SecretKey signingKey() {

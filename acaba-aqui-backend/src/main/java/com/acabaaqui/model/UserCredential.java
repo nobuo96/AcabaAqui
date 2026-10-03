@@ -27,6 +27,9 @@ public class UserCredential {
     @Column(name = "ativo")
     private Boolean ativo = true;
 
+    @Column(name = "versao_token", nullable = false)
+    private Integer versaoToken = 0;
+
     public Integer getUsuarioId() {
         return usuarioId;
     }
@@ -65,5 +68,13 @@ public class UserCredential {
 
     public void setAtivo(Boolean ativo) {
         this.ativo = ativo;
+    }
+
+    public Integer getVersaoToken() {
+        return versaoToken;
+    }
+
+    public void setVersaoToken(Integer versaoToken) {
+        this.versaoToken = versaoToken;
     }
 }

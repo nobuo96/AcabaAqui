@@ -1,2 +1,7 @@
-com\acabaaqui\services\PasswordHasherTest.class
 com\acabaaqui\services\VerificationCodeServiceTest.class
+com\acabaaqui\services\UserServicePersonalInfoTest$2.class
+com\acabaaqui\services\UserServicePersonalInfoTest.class
+com\acabaaqui\services\AuthServiceTokenVersionTest$1.class
+com\acabaaqui\services\AuthServiceTokenVersionTest.class
+com\acabaaqui\services\PasswordHasherTest.class
+com\acabaaqui\services\UserServicePersonalInfoTest$1.class

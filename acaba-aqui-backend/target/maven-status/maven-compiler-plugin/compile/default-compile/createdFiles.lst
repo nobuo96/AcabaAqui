@@ -8,6 +8,7 @@ com\acabaaqui\services\EmailVerificationService$ConfirmationResult.class
 com\acabaaqui\resources\AuthResource$MessageResponse.class
 com\acabaaqui\model\User.class
 com\acabaaqui\services\AuthService.class
+com\acabaaqui\model\PasswordResetChallenge.class
 com\acabaaqui\model\PerfilUser.class
 com\acabaaqui\resources\AuthResource.class
 com\acabaaqui\services\EmailVerificationService.class
@@ -15,10 +16,14 @@ com\acabaaqui\persistence\UserCredentialRepository.class
 com\acabaaqui\resources\AuthResource$EmailRequest.class
 com\acabaaqui\services\EmailVerificationService$ConfirmationStatus.class
 com\acabaaqui\model\AlgoritmoCredential.class
+com\acabaaqui\resources\UserResource$UpdatePersonalInfoRequest.class
 com\acabaaqui\resources\AuthResource$LoginResponse.class
+com\acabaaqui\resources\AuthResource$PasswordResetRequest.class
 com\acabaaqui\persistence\PendingEmailRegistrationRepository.class
 com\acabaaqui\model\PendingEmailRegistration.class
+com\acabaaqui\services\PasswordResetService.class
 com\acabaaqui\security\JwtAuthenticationFilter.class
+com\acabaaqui\persistence\PasswordResetChallengeRepository.class
 com\acabaaqui\resources\AuthResource$VerificationRequest.class
 com\acabaaqui\services\VerificationCodeService.class
 com\acabaaqui\persistence\UserRepository.class

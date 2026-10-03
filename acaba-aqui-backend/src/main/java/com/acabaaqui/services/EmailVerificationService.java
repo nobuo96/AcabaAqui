@@ -152,6 +152,7 @@ public class EmailVerificationService {
         user.setEmail(normalizedEmail);
         user.setTelefone(pending.getTelefone());
         user.setPerfil(pending.getPerfil());
+        user.setEmailVerificado(true);
 
         UserCredential credential = new UserCredential();
         credential.setSenhaHash(pending.getSenhaHash());
