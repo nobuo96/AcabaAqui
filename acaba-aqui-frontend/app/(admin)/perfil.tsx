@@ -4,11 +4,13 @@ import { Text, View } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
 import { AcabaAquiOption } from '@/components/AcabaAquiOption';
+import { removeAuthToken } from '@/lib/authToken';
 
 export default function PerfilScreen() {
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await removeAuthToken();
     router.replace('/(auth)/login');
   };
 

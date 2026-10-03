@@ -6,24 +6,42 @@ import { AcabaAquiButton } from '@/components/AcabaAquiButton';
 import { Link, useRouter } from 'expo-router';
 import { AcabaAquiInput } from '@/components/AcabaAquiInput';
 import { SocialLoginButton } from '@/components/SocialLoginButton';
-import { AcabaAquiSwitch } from '@/components/AcabaAquiSwitch';
+import { apiFetch } from '@/lib/api';
+import { saveAuthToken, saveAuthUserId } from '@/lib/authToken';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [role, setRole] = useState('Cliente');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [erroMensagem, setErroMensagem] = useState('');
 
-  const handleLogin = () => {
-    if (role === 'Fornecedor') {
-      router.replace('/(prestador)');
-      return;
+  const handleLogin = async () => {
+    setErroMensagem('');
+    try {
+      const resposta = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, senha }),
+      });
+
+      if (!resposta.ok) {
+        setErroMensagem(resposta.status === 401 ? 'E-mail ou senha inválidos.' : 'Não foi possível entrar.');
+        return;
+      }
+
+      const auth = await resposta.json();
+      await saveAuthToken(auth.token);
+      await saveAuthUserId(auth.userId);
+
+      if (auth.perfil === 'prestador') {
+        router.replace('/(prestador)');
+      } else if (auth.perfil === 'administrador') {
+        router.replace('/(admin)');
+      } else {
+        router.replace('/(cliente)');
+      }
+    } catch {
+      setErroMensagem('Não foi possível conectar ao servidor.');
     }
-
-    if (role === 'Administrador') {
-      router.replace('/(admin)');
-      return;
-    }
-
-    router.replace('/(cliente)');
   };
 
   return (
@@ -45,23 +63,21 @@ export default function LoginScreen() {
         <Text style={styles.title}>Acesse sua conta</Text>
         <Text style={styles.subTitle}>Insira seu e-mail e senha para acessar sua conta.</Text>
 
-        <View style={styles.roleContainer}>
-          <Text style={styles.roleLabel}>Eu sou</Text>
-          <AcabaAquiSwitch
-            options={['Cliente', 'Fornecedor', 'Administrador']}
-            value={role}
-            onChange={setRole}
-          />
-        </View>
+        {erroMensagem ? <Text style={styles.errorText}>{erroMensagem}</Text> : null}
 
         <View style={styles.inputContainer}>
           <AcabaAquiInput
             placeholder="E-mail"
             keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
           />
           <AcabaAquiInput
             placeholder="Senha"
             secureTextEntry={true}
+            value={senha}
+            onChangeText={setSenha}
           />
         </View>
 
@@ -80,12 +96,12 @@ export default function LoginScreen() {
           <SocialLoginButton
             provider="google"
             text="Continuar com Google"
-            onPress={handleLogin}
+            onPress={() => setErroMensagem('Login com Google ainda não está configurado.')}
           />
           <SocialLoginButton
             provider="facebook"
             text="Continuar com Facebook"
-            onPress={handleLogin}
+            onPress={() => setErroMensagem('Login com Facebook ainda não está configurado.')}
           />
         </View>
       </View>
@@ -125,16 +141,7 @@ const styles = StyleSheet.create({
   subTitle: {
     fontSize: 16,
   },
-  roleContainer: {
-    marginTop: 8,
-    marginBottom: 12,
-    gap: 8,
-  },
-  roleLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333333',
-  },
+  errorText: { color: '#a43434', fontSize: 14 },
   inputContainer: {
     marginVertical: 8,
     gap: 8,

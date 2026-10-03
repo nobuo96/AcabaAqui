@@ -1,11 +1,7 @@
 package com.acabaaqui.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+
 import java.util.Date;
 
 @Entity
@@ -13,29 +9,31 @@ import java.util.Date;
 public class User {
 
     @Id
-    private Long id;
-    
-    @Column
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "usuario_id")
+    private Integer usuario_id;
+
+    @Column(name = "nome", nullable = false, length = 100)
     private String nome;
 
-    @Column
+    @Column(name = "email", nullable = false, unique = true, length = 150)
     private String email;
 
     @Enumerated(EnumType.STRING)
-    @Column
+    @Column(name = "perfil", nullable = false)
     private PerfilUser perfil;
 
-    @Column
+    @Column(name = "telefone", length = 20)
     private String telefone;
 
-    @Column
+    @Column(name = "data_criacao", insertable = false, updatable = false)
     private Date dataCriacao;
 
-    @Column
+    @Column(name = "ultima_atualizacao", insertable = false, updatable = false)
     private Date ultimaAtualizacao;
 
-    @Column
-    private String ativo;
+    @Column(name = "ativo")
+    private Boolean ativo;
 
     public String getNome() {
         return nome;
@@ -85,26 +83,24 @@ public class User {
         this.ultimaAtualizacao = ultimaAtualizacao;
     }
 
-    public String getAtivo() {
+    public Boolean getAtivo() {
         return ativo;
     }
 
-    public void setAtivo(String ativo) {
+    public void setAtivo(Boolean ativo) {
         this.ativo = ativo;
     }
 
-    public Long getId() {
-        return id;
+    public Integer getId() {
+        return usuario_id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setId(Integer id) {
+        this.usuario_id = id;
     }
 
-}
-
-enum PerfilUser{
-    Administrador,
-    Usuario,
-    Prestador
+    public boolean perfilValido(User user) {
+        return user.getPerfil() == PerfilUser.cliente
+                || user.getPerfil() == PerfilUser.prestador;
+    }
 }

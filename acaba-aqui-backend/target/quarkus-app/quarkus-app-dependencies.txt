@@ -16,6 +16,9 @@ io.agroal:agroal-api::jar:2.5
 io.agroal:agroal-narayana::jar:2.5
 io.agroal:agroal-pool::jar:2.5
 io.github.crac:org-crac::jar:0.1.3
+io.jsonwebtoken:jjwt-api::jar:0.12.6
+io.jsonwebtoken:jjwt-impl::jar:0.12.6
+io.jsonwebtoken:jjwt-jackson::jar:0.12.6
 io.netty:netty-buffer::jar:4.1.115.Final
 io.netty:netty-codec-dns::jar:4.1.115.Final
 io.netty:netty-codec-haproxy::jar:4.1.115.Final
@@ -31,6 +34,7 @@ io.netty:netty-resolver::jar:4.1.115.Final
 io.netty:netty-transport-native-unix-common::jar:4.1.115.Final
 io.netty:netty-transport::jar:4.1.115.Final
 io.quarkus.arc:arc::jar:3.15.3
+io.quarkus.qute:qute-core::jar:3.15.3
 io.quarkus.resteasy.reactive:resteasy-reactive-common-types::jar:3.15.3
 io.quarkus.resteasy.reactive:resteasy-reactive-common::jar:3.15.3
 io.quarkus.resteasy.reactive:resteasy-reactive-jackson::jar:3.15.3
@@ -48,6 +52,7 @@ io.quarkus:quarkus-credentials::jar:3.15.3
 io.quarkus:quarkus-datasource-common::jar:3.15.3
 io.quarkus:quarkus-datasource::jar:3.15.3
 io.quarkus:quarkus-development-mode-spi::jar:3.15.3
+io.quarkus:quarkus-elytron-security-common::jar:3.15.3
 io.quarkus:quarkus-fs-util::jar:0.0.10
 io.quarkus:quarkus-hibernate-orm-panache-common::jar:3.15.3
 io.quarkus:quarkus-hibernate-orm-panache::jar:3.15.3
@@ -55,11 +60,13 @@ io.quarkus:quarkus-hibernate-orm::jar:3.15.3
 io.quarkus:quarkus-jackson::jar:3.15.3
 io.quarkus:quarkus-jdbc-mysql::jar:3.15.3
 io.quarkus:quarkus-jsonp::jar:3.15.3
+io.quarkus:quarkus-mailer::jar:3.15.3
 io.quarkus:quarkus-mutiny::jar:3.15.3
 io.quarkus:quarkus-narayana-jta::jar:3.15.3
 io.quarkus:quarkus-netty::jar:3.15.3
 io.quarkus:quarkus-panache-common::jar:3.15.3
 io.quarkus:quarkus-panache-hibernate-common::jar:3.15.3
+io.quarkus:quarkus-qute::jar:3.15.3
 io.quarkus:quarkus-rest-common::jar:3.15.3
 io.quarkus:quarkus-rest-jackson-common::jar:3.15.3
 io.quarkus:quarkus-rest-jackson::jar:3.15.3
@@ -92,6 +99,7 @@ io.smallrye.reactive:mutiny::jar:2.6.2
 io.smallrye.reactive:smallrye-mutiny-vertx-auth-common::jar:3.16.0
 io.smallrye.reactive:smallrye-mutiny-vertx-bridge-common::jar:3.16.0
 io.smallrye.reactive:smallrye-mutiny-vertx-core::jar:3.16.0
+io.smallrye.reactive:smallrye-mutiny-vertx-mail-client::jar:3.16.0
 io.smallrye.reactive:smallrye-mutiny-vertx-runtime::jar:3.16.0
 io.smallrye.reactive:smallrye-mutiny-vertx-uri-template::jar:3.16.0
 io.smallrye.reactive:smallrye-mutiny-vertx-web-common::jar:3.16.0
@@ -108,6 +116,7 @@ io.vertx:vertx-auth-common::jar:4.5.11
 io.vertx:vertx-bridge-common::jar:4.5.11
 io.vertx:vertx-codegen::jar:4.5.11
 io.vertx:vertx-core::jar:4.5.11
+io.vertx:vertx-mail-client::jar:4.5.11
 io.vertx:vertx-uri-template::jar:4.5.11
 io.vertx:vertx-web-common::jar:4.5.11
 io.vertx:vertx-web::jar:4.5.11
@@ -152,3 +161,13 @@ org.jctools:jctools-core::jar:4.0.5
 org.reactivestreams:reactive-streams::jar:1.0.4
 org.slf4j:slf4j-api::jar:2.0.6
 org.wildfly.common:wildfly-common::jar:1.7.0.Final
+org.wildfly.security:wildfly-elytron-asn1::jar:2.5.2.Final
+org.wildfly.security:wildfly-elytron-base::jar:2.5.2.Final
+org.wildfly.security:wildfly-elytron-credential::jar:2.5.2.Final
+org.wildfly.security:wildfly-elytron-keystore::jar:2.5.2.Final
+org.wildfly.security:wildfly-elytron-password-impl::jar:2.5.2.Final
+org.wildfly.security:wildfly-elytron-provider-util::jar:2.5.2.Final
+org.wildfly.security:wildfly-elytron-util::jar:2.5.2.Final
+org.wildfly.security:wildfly-elytron-x500-cert-util::jar:2.5.2.Final
+org.wildfly.security:wildfly-elytron-x500-cert::jar:2.5.2.Final
+org.wildfly.security:wildfly-elytron-x500::jar:2.5.2.Final
