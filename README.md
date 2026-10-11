@@ -86,3 +86,11 @@ Os códigos têm 6 dígitos, expiram em 10 minutos, aceitam até 5 tentativas e 
 As telas de cliente e prestador carregam `GET /user/{id}` usando o ID e JWT da sessão. Nome, telefone e data de nascimento podem ser alterados com `PUT /user/{id}`; e-mail e perfil são somente leitura. A data é opcional e enviada como `YYYY-MM-DD`.
 
 Antes de usar a data de nascimento, aplique manualmente `acaba-aqui-backend/src/main/resources/db/migration/V4__user_birth_date.sql` no banco MySQL com um usuário que tenha permissão de `ALTER`. O SQL apenas adiciona `data_nascimento DATE NULL`; o assistente não executa DDL nem conecta ao banco.
+
+## Gestão administrativa do catálogo
+
+O grupo administrativo permite gerenciar categorias e serviços. Categorias têm nome, descrição opcional e situação; serviços têm nome, descrição, categoria e situação. A exclusão é lógica: categorias e serviços inativos permanecem consultáveis e podem ser reativados. A desativação de uma categoria preserva os serviços associados, mas impede que ela seja selecionada em novos serviços ou em alterações de categoria.
+
+Antes de usar as telas de gestão, aplique manualmente `acaba-aqui-backend/src/main/resources/db/migration/V6__catalogo_servicos.sql` no banco MySQL correto. O Hibernate está configurado com `quarkus.hibernate-orm.database.generation=none` e não cria essas tabelas. Cadastre uma categoria ativa antes de cadastrar serviços.
+
+As rotas `/categories` e `/services` exigem um JWT de usuário com perfil `administrador`. Cada recurso oferece `GET` para listagem, `POST` para cadastro, `PUT /{id}` para alteração e `DELETE /{id}` para desativação. As listagens aceitam o filtro opcional `?ativo=true` ou `?ativo=false`; sem filtro, retornam registros ativos e inativos.
