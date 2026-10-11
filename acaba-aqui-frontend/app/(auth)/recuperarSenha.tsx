@@ -4,6 +4,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { Text, View } from '@/components/Themed';
 import { AcabaAquiInput } from '@/components/AcabaAquiInput';
 import { AcabaAquiButton } from '@/components/AcabaAquiButton';
+import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 
@@ -123,7 +124,7 @@ export default function RecuperarSenhaScreen() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.inner}>
+            <ScrollAreaView contentContainerStyle={styles.inner}>
                 <Pressable
                     style={styles.backButton}
                     onPress={() => router.replace('../')}
@@ -202,7 +203,7 @@ export default function RecuperarSenhaScreen() {
                                         <Text style={styles.secondaryActionText}>Usar outro e-mail</Text>
                                     </Pressable>
                                 </>}
-            </View>
+            </ScrollAreaView>
         </View>
     );
 }

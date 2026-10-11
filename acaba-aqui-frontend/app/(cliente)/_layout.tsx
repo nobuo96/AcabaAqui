@@ -38,10 +38,16 @@ export default function ClienteLayout() {
           title: 'Perfil',
         }}
       />
-            <Tabs.Screen
+      <Tabs.Screen
         name="informacoesPessoais"
         options={{
-          href:null,
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="alterarSenha"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

@@ -5,3 +5,6 @@ com\acabaaqui\services\AuthServiceTokenVersionTest$1.class
 com\acabaaqui\services\AuthServiceTokenVersionTest.class
 com\acabaaqui\services\PasswordHasherTest.class
 com\acabaaqui\services\UserServicePersonalInfoTest$1.class
+com\acabaaqui\services\ChangePasswordServiceTest.class
+com\acabaaqui\services\AuthServiceTokenVersionTest$2.class
+com\acabaaqui\services\ChangePasswordServiceTest$TestCredentialRepository.class

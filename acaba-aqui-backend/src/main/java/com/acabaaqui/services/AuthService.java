@@ -58,6 +58,17 @@ public class AuthService {
             throw new WebApplicationException(Response.Status.UNAUTHORIZED);
         }
 
+        return gerarToken(user, credential.getVersaoToken());
+    }
+
+    public String gerarToken(User user, Integer credentialVersion) {
+        if (user == null || user.getId() == null) {
+            throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+        }
+        if (credentialVersion == null) {
+            throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+        }
+
         Instant issuedAt = Instant.now();
         return Jwts.builder()
                 .subject(user.getId().toString())
@@ -65,7 +76,7 @@ public class AuthService {
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(issuedAt.plusSeconds(tokenDurationSeconds)))
                 .claim("roles", List.of(user.getPerfil().toString()))
-                .claim("credentialVersion", credential.getVersaoToken())
+                .claim("credentialVersion", credentialVersion)
                 .signWith(signingKey())
                 .compact();
     }
@@ -98,8 +109,17 @@ public class AuthService {
         Integer userId = Integer.valueOf(claims.getSubject());
         UserCredential credential = credentialRepository.buscarPorUsuarioId(userId);
         Integer tokenVersion = claims.get("credentialVersion", Integer.class);
+        Integer credentialVersion = credential == null ? null : credential.getVersaoToken();
+        List<String> roles = claims.get("roles", List.class);
+
+        System.out.println("Validando token para usuarioId=" + userId
+                + ", versaoToken=" + tokenVersion
+                + ", versaoBanco=" + credentialVersion
+                + ", perfilClaim=" + (roles == null ? "null" : roles)
+                + ", credencialAtiva=" + (credential != null && Boolean.TRUE.equals(credential.getAtivo())));
+
         if (credential == null || Boolean.FALSE.equals(credential.getAtivo())
-                || tokenVersion == null || !tokenVersion.equals(credential.getVersaoToken())) {
+                || tokenVersion == null || !tokenVersion.equals(credentialVersion)) {
             throw new WebApplicationException(Response.Status.UNAUTHORIZED);
         }
         return claims;

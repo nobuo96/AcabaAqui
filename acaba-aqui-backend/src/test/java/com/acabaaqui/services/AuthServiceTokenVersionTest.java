@@ -41,4 +41,31 @@ class AuthServiceTokenVersionTest {
         credential.setVersaoToken(1);
         assertThrows(WebApplicationException.class, () -> authService.validarToken(token));
     }
+
+    @Test
+    void generatesTokenWithExplicitCredentialVersion() {
+        UserCredential credential = new UserCredential();
+        credential.setUsuarioId(42);
+        credential.setVersaoToken(7);
+        credential.setAtivo(true);
+
+        AuthService authService = new AuthService();
+        authService.jwtSecret = Base64.getEncoder().encodeToString(new byte[32]);
+        authService.jwtIssuer = "test-issuer";
+        authService.tokenDurationSeconds = 3600;
+        authService.credentialRepository = new UserCredentialRepository() {
+            @Override
+            public UserCredential buscarPorUsuarioId(Integer userId) {
+                return credential.getUsuarioId().equals(userId) ? credential : null;
+            }
+        };
+
+        User user = new User();
+        user.setId(42);
+        user.setPerfil(PerfilUser.cliente);
+
+        String token = authService.gerarToken(user, 7);
+
+        assertEquals(7, authService.validarToken(token).get("credentialVersion", Integer.class));
+    }
 }

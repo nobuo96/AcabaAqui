@@ -14,7 +14,7 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   const isPublicAuthRequest = (init.method ?? 'GET').toUpperCase() === 'POST'
     && ['auth/login', 'auth/email-verification/request', 'auth/email-verification/resend',
       'auth/email-verification/confirm', 'auth/password-reset/request',
-      'auth/password-reset/resend', 'auth/password-reset/confirm'].includes(normalizedPath);
+      'auth/password-reset/resend', 'auth/password-reset/confirm', 'auth/social'].includes(normalizedPath);
 
   if (isPublicAuthRequest) {
     headers.delete('Authorization');

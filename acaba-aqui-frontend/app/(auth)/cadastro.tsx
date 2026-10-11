@@ -4,6 +4,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { Text, View } from '@/components/Themed';
 import { AcabaAquiInput } from '@/components/AcabaAquiInput';
 import { AcabaAquiButton } from '@/components/AcabaAquiButton';
+import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 import { saveAuthToken, saveAuthUserId } from '@/lib/authToken';
@@ -153,7 +154,7 @@ export default function CadastroScreen() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.inner}>
+            <ScrollAreaView contentContainerStyle={styles.inner}>
                 <Pressable
                     style={styles.backButton}
                     onPress={() => router.replace('../')}
@@ -270,7 +271,7 @@ export default function CadastroScreen() {
                       <Text style={styles.secondaryActionText}>Corrigir dados ou e-mail</Text>
                   </Pressable>
                 </>}
-            </View>
+            </ScrollAreaView>
         </View>
     );
 }

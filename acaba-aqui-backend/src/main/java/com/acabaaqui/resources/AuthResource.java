@@ -2,15 +2,20 @@ package com.acabaaqui.resources;
 
 import com.acabaaqui.model.User;
 import com.acabaaqui.services.AuthService;
+import com.acabaaqui.services.ChangePasswordService;
 import com.acabaaqui.services.EmailVerificationService;
 import com.acabaaqui.services.PasswordResetService;
+import com.acabaaqui.services.SocialAuthService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 
 @Path("/auth")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -26,6 +31,12 @@ public class AuthResource {
     @Inject
     PasswordResetService passwordResetService;
 
+    @Inject
+    ChangePasswordService changePasswordService;
+
+    @Inject
+    SocialAuthService socialAuthService;
+
     @POST
     @Path("/login")
     public Response login(LoginRequest request) {
@@ -36,6 +47,29 @@ public class AuthResource {
         String token = authService.autenticar(request.email().trim().toLowerCase(), request.senha());
         return Response.ok(new LoginResponse(token, authService.getUsuarioId(token), authService.getPerfil(token),
             authService.getDuracaoTokenSegundos())).build();
+    }
+
+    @POST
+    @Path("/social")
+    public Response loginSocial(SocialLoginRequest request) {
+        if (request == null || request.provedor() == null || request.credencial() == null
+                || request.credencial().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new MessageResponse("Provedor e credencial são obrigatórios.")).build();
+        }
+
+        try {
+            SocialAuthService.LoginResult result = socialAuthService.autenticar(
+                    request.provedor(), request.credencial(), request.perfil(), request.nome(), request.telefone());
+            return Response.ok(result).build();
+        } catch (WebApplicationException exception) {
+            String message = exception.getMessage();
+            return Response.status(exception.getResponse().getStatus())
+                    .entity(new MessageResponse(message == null ? "Não foi possível autenticar." : message)).build();
+        } catch (IllegalArgumentException exception) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new MessageResponse(exception.getMessage())).build();
+        }
     }
 
     @POST
@@ -164,7 +198,36 @@ public class AuthResource {
         return Response.ok(new MessageResponse("Senha redefinida. Entre novamente com a nova senha.")).build();
     }
 
+    @POST
+    @Path("/change-password")
+    public Response alterarSenha(ChangePasswordRequest request, @Context SecurityContext securityContext) {
+        if (request == null || request.senhaAtual() == null || request.novaSenha() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new MessageResponse("Senha atual e nova senha são obrigatórias.")).build();
+        }
+        Integer userId;
+        try {
+            userId = Integer.valueOf(securityContext.getUserPrincipal().getName());
+        } catch (RuntimeException exception) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new MessageResponse("Sessão inválida.")).build();
+        }
+
+        try {
+            changePasswordService.alterarSenha(userId, request.senhaAtual(), request.novaSenha());
+        } catch (WebApplicationException exception) {
+            return Response.status(exception.getResponse().getStatus())
+                    .entity(new MessageResponse(exception.getMessage())).build();
+        }
+
+        return Response.ok(new MessageResponse("Senha alterada. Faça login novamente."))
+                .build();
+    }
+
     public record LoginRequest(String email, String senha) { }
+
+    public record SocialLoginRequest(String provedor, String credencial,
+                                     com.acabaaqui.model.PerfilUser perfil, String nome, String telefone) { }
 
     public record RegistrationRequest(String nome, String email, String telefone,
                                       com.acabaaqui.model.PerfilUser perfil, String senha) { }
@@ -174,6 +237,8 @@ public class AuthResource {
     public record VerificationRequest(String email, String code) { }
 
     public record PasswordResetRequest(String email, String code, String newPassword) { }
+
+    public record ChangePasswordRequest(String senhaAtual, String novaSenha) { }
 
     public record MessageResponse(String message) { }
 

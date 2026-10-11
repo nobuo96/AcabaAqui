@@ -1,7 +1,8 @@
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
 import { AcabaAquiButton } from '@/components/AcabaAquiButton';
+import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
 
 export default function InformacoesPessoaisScreen() {
@@ -19,7 +20,7 @@ export default function InformacoesPessoaisScreen() {
         onBackPress={handleBack}
       />
 
-      <ScrollView style={styles.inner}>
+      <ScrollAreaView contentContainerStyle={styles.inner}>
         <Text style={styles.sectionLabel}>Dados pessoais</Text>
 
         <View style={styles.fieldGroup}>
@@ -57,7 +58,7 @@ export default function InformacoesPessoaisScreen() {
         </View>
 
         <AcabaAquiButton text="Salvar" onPress={handleBack} />
-      </ScrollView>
+      </ScrollAreaView>
     </View>
   );
 }

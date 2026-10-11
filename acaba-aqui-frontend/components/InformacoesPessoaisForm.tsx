@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { AcabaAquiButton } from '@/components/AcabaAquiButton';
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
+import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
 import { apiFetch } from '@/lib/api';
 import { getAuthUserId } from '@/lib/authToken';
@@ -167,7 +168,7 @@ export function InformacoesPessoaisForm({ onBack }: InformacoesPessoaisFormProps
   return (
     <View style={styles.container}>
       <AcabaAquiHeader title="Informações Pessoais" backButton onBackPress={onBack} />
-      <ScrollView style={styles.inner} keyboardShouldPersistTaps="handled">
+      <ScrollAreaView contentContainerStyle={styles.inner}>
         <Text style={styles.sectionLabel}>Dados pessoais</Text>
 
         {carregando ? <Text style={styles.status}>Carregando informações...</Text> : null}
@@ -216,7 +217,7 @@ export function InformacoesPessoaisForm({ onBack }: InformacoesPessoaisFormProps
 
           <AcabaAquiButton text={salvando ? 'Salvando...' : 'Salvar'} onPress={() => { void salvar(); }} />
         </> : null}
-      </ScrollView>
+      </ScrollAreaView>
     </View>
   );
 }
