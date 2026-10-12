@@ -87,6 +87,14 @@ As telas de cliente e prestador carregam `GET /user/{id}` usando o ID e JWT da s
 
 Antes de usar a data de nascimento, aplique manualmente `acaba-aqui-backend/src/main/resources/db/migration/V4__user_birth_date.sql` no banco MySQL com um usuário que tenha permissão de `ALTER`. O SQL apenas adiciona `data_nascimento DATE NULL`; o assistente não executa DDL nem conecta ao banco.
 
+## Gestão de endereços
+
+Cliente e prestador gerenciam endereços pela opção **Gerenciar endereços** na tela de Informações Pessoais. A tela permite cadastrar vários locais, editar, desativar e definir opcionalmente um endereço principal. A desativação é lógica e a lista mostra apenas endereços ativos. Endereços do prestador representam locais de atendimento/base; área de cobertura não é configurada nesta etapa.
+
+Antes de usar os endereços, aplique manualmente `acaba-aqui-backend/src/main/resources/db/migration/V7__enderecos.sql` no banco MySQL correto. A migration cria a tabela `enderecos` relacionada a `usuarios`; o Hibernate não executa o DDL automaticamente.
+
+As rotas autenticadas são `GET` e `POST /user/{userId}/addresses`, `PUT` e `DELETE /user/{userId}/addresses/{addressId}` e `PUT /user/{userId}/addresses/{addressId}/principal`. A API confere o usuário autenticado antes de permitir o acesso. `GET /addresses/cep/{cep}` consulta o ViaCEP no backend e retorna CEP, logradouro, complemento, bairro, cidade e UF. A consulta não exige credencial; se o CEP não for encontrado ou o serviço estiver indisponível, o app permite preencher o endereço manualmente.
+
 ## Gestão administrativa do catálogo
 
 O grupo administrativo permite gerenciar categorias e serviços. Categorias têm nome, descrição opcional e situação; serviços têm nome, descrição, categoria e situação. A exclusão é lógica: categorias e serviços inativos permanecem consultáveis e podem ser reativados. A desativação de uma categoria preserva os serviços associados, mas impede que ela seja selecionada em novos serviços ou em alterações de categoria.
@@ -94,3 +102,9 @@ O grupo administrativo permite gerenciar categorias e serviços. Categorias têm
 Antes de usar as telas de gestão, aplique manualmente `acaba-aqui-backend/src/main/resources/db/migration/V6__catalogo_servicos.sql` no banco MySQL correto. O Hibernate está configurado com `quarkus.hibernate-orm.database.generation=none` e não cria essas tabelas. Cadastre uma categoria ativa antes de cadastrar serviços.
 
 As rotas `/categories` e `/services` exigem um JWT de usuário com perfil `administrador`. Cada recurso oferece `GET` para listagem, `POST` para cadastro, `PUT /{id}` para alteração e `DELETE /{id}` para desativação. As listagens aceitam o filtro opcional `?ativo=true` ou `?ativo=false`; sem filtro, retornam registros ativos e inativos.
+
+## Solicitações de serviço do cliente
+
+Clientes podem criar solicitações de serviços ativos informando área aproximada em m² e um endereço ativo próprio. A tela **Minhas solicitações** apresenta todas as solicitações, da mais recente para a mais antiga, com filtro para abertas. Solicitações abertas podem ser canceladas e passam ao status `ENCERRADA`. A solicitação guarda uma cópia dos dados do endereço usados na criação; alterações ou desativação posterior do endereço não alteram o histórico. Para usar o recurso, aplique manualmente `acaba-aqui-backend/src/main/resources/db/migration/V8__solicitacoes_servico.sql` no banco MySQL.
+
+As rotas autenticadas `GET` e `POST /user/{userId}/service-requests` listam e criam solicitações do próprio cliente. A criação recebe `servicoId`, `enderecoId` e `areaM2` (maior que zero, com até duas casas decimais). `POST /user/{userId}/service-requests/{requestId}/cancel` encerra uma solicitação que ainda não esteja encerrada; solicitações de outros clientes não são acessíveis. `GET /services` também permite a clientes consultar somente serviços ativos; operações administrativas do catálogo continuam restritas a administradores.

@@ -3,6 +3,7 @@ package com.acabaaqui.persistence;
 import com.acabaaqui.model.User;
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 
 @ApplicationScoped
@@ -15,6 +16,10 @@ public class UserRepository implements PanacheRepository<User>{
 
     public User buscarUsuarioPorId(Integer id) {
         return findById((long) id);
+    }
+
+    public User buscarUsuarioPorIdComBloqueio(Integer id) {
+        return findById((long) id, LockModeType.PESSIMISTIC_WRITE);
     }
 
     public User buscarUsuarioPorEmail(String email) {

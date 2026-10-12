@@ -4,5 +4,10 @@ import { InformacoesPessoaisForm } from '@/components/InformacoesPessoaisForm';
 export default function InformacoesPessoaisScreen() {
   const router = useRouter();
 
-  return <InformacoesPessoaisForm onBack={() => router.replace('/(cliente)/perfil')} />;
+  return (
+    <InformacoesPessoaisForm
+      onBack={() => router.replace('/(cliente)/perfil')}
+      onManageAddresses={() => router.push('/enderecos')}
+    />
+  );
 }

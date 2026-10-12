@@ -3,6 +3,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { AcabaAquiButton } from '@/components/AcabaAquiButton';
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
+import { AcabaAquiOption } from '@/components/AcabaAquiOption';
 import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
 import { apiFetch } from '@/lib/api';
@@ -18,6 +19,7 @@ interface UserDetails {
 
 interface InformacoesPessoaisFormProps {
   onBack: () => void;
+  onManageAddresses: () => void;
 }
 
 function formatBirthDate(value: string | null) {
@@ -63,7 +65,7 @@ function parseBirthDate(value: string): string | null | undefined {
   return isoDate <= today ? isoDate : undefined;
 }
 
-export function InformacoesPessoaisForm({ onBack }: InformacoesPessoaisFormProps) {
+export function InformacoesPessoaisForm({ onBack, onManageAddresses }: InformacoesPessoaisFormProps) {
   const [user, setUser] = useState<UserDetails | null>(null);
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -216,6 +218,10 @@ export function InformacoesPessoaisForm({ onBack }: InformacoesPessoaisFormProps
           </View>
 
           <AcabaAquiButton text={salvando ? 'Salvando...' : 'Salvar'} onPress={() => { void salvar(); }} />
+          <View style={styles.menu}>
+            <Text style={styles.sectionLabel}>Endereços</Text>
+            <AcabaAquiOption text="Gerenciar endereços" onPress={onManageAddresses} />
+          </View>
         </> : null}
       </ScrollAreaView>
     </View>
@@ -236,6 +242,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 12,
+  },
+  menu: {
+    marginTop: 28,
   },
   fieldGroup: {
     marginBottom: 18,

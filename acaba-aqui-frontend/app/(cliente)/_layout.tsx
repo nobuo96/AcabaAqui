@@ -33,9 +33,21 @@ export default function ClienteLayout() {
         }}
       />
       <Tabs.Screen
+        name="solicitacoes"
+        options={{
+          title: 'Solicitações',
+        }}
+      />
+      <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',
+        }}
+      />
+      <Tabs.Screen
+        name="novaSolicitacao"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen

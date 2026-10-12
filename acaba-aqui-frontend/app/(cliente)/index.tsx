@@ -1,9 +1,12 @@
 import { StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { Text, View } from '@/components/Themed';
+import { AcabaAquiButton } from '@/components/AcabaAquiButton';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { nome, carregando, erro } = useCurrentUser();
 
   return (
@@ -12,6 +15,16 @@ export default function HomeScreen() {
       {carregando ? <Text>Carregando usuário...</Text> : null}
       {!carregando && !erro ? <Text style={styles.name}>Olá, {nome}</Text> : null}
       {erro ? <Text style={styles.error}>{erro}</Text> : null}
+      <View style={styles.actions}>
+        <AcabaAquiButton
+          text="Solicitar serviço"
+          onPress={() => router.push('/(cliente)/novaSolicitacao')}
+        />
+        <AcabaAquiButton
+          text="Minhas solicitações"
+          onPress={() => router.push('/(cliente)/solicitacoes')}
+        />
+      </View>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
     </View>
   );
@@ -34,6 +47,11 @@ const styles = StyleSheet.create({
   error: {
     color: '#a43434',
     marginTop: 12,
+  },
+  actions: {
+    width: '80%',
+    gap: 12,
+    marginTop: 24,
   },
   separator: {
     marginVertical: 30,
