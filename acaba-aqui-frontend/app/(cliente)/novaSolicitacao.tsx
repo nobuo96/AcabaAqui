@@ -120,16 +120,6 @@ export default function NovaSolicitacaoScreen() {
           {services.length === 0
             ? <Text style={styles.muted}>Não há serviços disponíveis no momento.</Text>
             : <AcabaAquiDropdown data={services.map((service) => ({ label: service.nome, value: service.id.toString() }))} />
-            // services.map((service) => (
-            //   <Pressable
-            //     key={service.id}
-            //     onPress={() => setSelectedServiceId(service.id)}
-            //     style={[styles.option, selectedServiceId === service.id && styles.optionSelected]}
-            //   >
-            //     <Text style={styles.optionTitle}>{service.nome}</Text>
-            //     <Text style={styles.muted}>{service.descricao}</Text>
-            //   </Pressable>
-            // ))
           }
 
           <Text style={styles.sectionTitle}>Área aproximada</Text>
