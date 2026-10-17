@@ -11,10 +11,18 @@ export default function ClienteLayout() {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarIcon: () => null,
+        tabBarLabelPosition: 'beside-icon',
         tabBarActiveTintColor: '#a43434',
         tabBarInactiveTintColor: '#7a7a7a',
+        tabBarIconStyle: {
+          display: 'none',
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
         tabBarLabelStyle: {
-          fontSize: 24,
+          fontSize: 20,
           fontWeight: '600',
         },
         tabBarStyle: {
@@ -23,6 +31,7 @@ export default function ClienteLayout() {
           paddingTop: 8,
           borderTopWidth: 1,
           borderTopColor: '#eaeaea',
+
         },
       }}
     >

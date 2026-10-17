@@ -9,15 +9,29 @@ export default function AdminLayout() {
       initialRouteName="index"
       screenOptions={{
         headerShown: false,
+        tabBarShowLabel: true,
+        tabBarIcon: () => null,
+        tabBarLabelPosition: 'beside-icon',
         tabBarActiveTintColor: '#a43434',
         tabBarInactiveTintColor: '#7a7a7a',
-        tabBarLabelStyle: { fontSize: 14, fontWeight: '600' },
+        tabBarIconStyle: {
+          display: 'none',
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        tabBarLabelStyle: {
+          fontSize: 20,
+          fontWeight: '600',
+        },
         tabBarStyle: {
-          height: 56 + insets.bottom,
+          height: 64 + insets.bottom,
           paddingBottom: Math.max(insets.bottom, 8),
-          paddingTop: 6,
+          paddingTop: 8,
           borderTopWidth: 1,
           borderTopColor: '#eaeaea',
+
         },
       }}
     >
