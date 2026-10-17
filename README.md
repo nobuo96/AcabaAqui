@@ -159,7 +159,6 @@ ipconfig
 Exemplo:
 
 ```PowerShell
-env não tem suporte total. O realce de sintaxe é baseado em PowerShell.
 EXPO_PUBLIC_API_URL=http://192.168.1.42:8080
 ```
 
