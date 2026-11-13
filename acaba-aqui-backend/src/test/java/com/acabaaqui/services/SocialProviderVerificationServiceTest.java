@@ -1,5 +1,7 @@
 package com.acabaaqui.services;
 
+import java.util.Optional;
+
 import jakarta.ws.rs.WebApplicationException;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +24,7 @@ class SocialProviderVerificationServiceTest {
     void requiresGoogleClientIdsBeforeContactingProvider() {
         SocialProviderVerificationService service = new SocialProviderVerificationService();
         service.enabled = true;
-        service.googleClientIds = "";
+        service.googleClientIds = Optional.empty();
 
         WebApplicationException exception = assertThrows(
                 WebApplicationException.class, () -> service.verify("google", "test-token"));
@@ -34,8 +36,8 @@ class SocialProviderVerificationServiceTest {
     void requiresFacebookAppCredentialsBeforeContactingProvider() {
         SocialProviderVerificationService service = new SocialProviderVerificationService();
         service.enabled = true;
-        service.facebookAppId = "";
-        service.facebookAppSecret = "";
+        service.facebookAppId = Optional.empty();
+        service.facebookAppSecret = Optional.empty();
 
         WebApplicationException exception = assertThrows(
                 WebApplicationException.class, () -> service.verify("facebook", "test-token"));

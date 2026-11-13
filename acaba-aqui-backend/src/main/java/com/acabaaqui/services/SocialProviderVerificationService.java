@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -35,13 +36,13 @@ public class SocialProviderVerificationService {
     boolean enabled;
 
     @ConfigProperty(name = "app.social-auth.google-client-ids", defaultValue = "")
-    String googleClientIds;
+    Optional<String> googleClientIds;
 
     @ConfigProperty(name = "app.social-auth.facebook-app-id", defaultValue = "")
-    String facebookAppId;
+    Optional<String> facebookAppId;
 
     @ConfigProperty(name = "app.social-auth.facebook-app-secret", defaultValue = "")
-    String facebookAppSecret;
+    Optional<String> facebookAppSecret;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -70,7 +71,7 @@ public class SocialProviderVerificationService {
     }
 
     private VerifiedIdentity verifyGoogle(String idToken) {
-        Set<String> allowedAudiences = Arrays.stream(googleClientIds.split(","))
+        Set<String> allowedAudiences = Arrays.stream(googleClientIds.orElse("").split(","))
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
                 .collect(Collectors.toSet());
@@ -99,18 +100,20 @@ public class SocialProviderVerificationService {
     }
 
     private VerifiedIdentity verifyFacebook(String accessToken) {
-        if (facebookAppId.isBlank() || facebookAppSecret.isBlank()) {
+        String appId = facebookAppId.orElse("");
+        String appSecret = facebookAppSecret.orElse("");
+        if (appId.isBlank() || appSecret.isBlank()) {
             throw configurationError("FACEBOOK_APP_ID e FACEBOOK_APP_SECRET não estão configurados no backend.");
         }
 
         String graph = "https://graph.facebook.com/" + FACEBOOK_GRAPH_VERSION + "/";
         JsonNode debug = getJson(graph + "debug_token?input_token=" + encode(accessToken)
-                + "&access_token=" + encode(facebookAppId + "|" + facebookAppSecret));
+                + "&access_token=" + encode(appId + "|" + appSecret));
         JsonNode tokenData = debug.path("data");
         String subject = text(tokenData, "user_id");
         long expiresAt = number(tokenData, "expires_at");
         if (!isTrue(tokenData.get("is_valid"))
-                || !facebookAppId.equals(text(tokenData, "app_id"))
+                || !appId.equals(text(tokenData, "app_id"))
                 || subject.isBlank()
                 || (expiresAt > 0 && expiresAt <= Instant.now().getEpochSecond())) {
             throw unauthorized();
