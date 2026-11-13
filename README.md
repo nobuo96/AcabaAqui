@@ -65,6 +65,8 @@ $bytes = New-Object byte[] 32
 $env:APP_EMAIL_VERIFICATION_SECRET = [Convert]::ToBase64String($bytes)
 ```
 
+Defina as duas variáveis na mesma sessão do PowerShell usada para iniciar o backend. Variáveis `$env:` deixam de existir quando essa janela é fechada.
+
 #### Rodando os e-mails localmente
 
 Para desenvolvimento utilizamos o Mailpit.
@@ -103,7 +105,11 @@ Os principais arquivos atualmente são:
 
 ```Plain Text
 V1_features_epic1.sql
+v2_request_communications.sql
+v3_provider_services_and_regions.sql
 ```
+
+Execute as migrations em ordem antes de iniciar a aplicação.
 
 ## Rodando o Backend
 
@@ -112,6 +118,8 @@ Dentro da pasta do projeto:
 ```PowerShell
 mvn quarkus:dev
 ```
+
+No modo de desenvolvimento, o terminal do backend registra o método e o status de cada requisição HTTP.
 
 A API ficará disponível em:
 
@@ -381,6 +389,42 @@ GET /user/{userId}/service-requests
 
 ```HTTP
 POST /user/{userId}/service-requests/{requestId}/cancel
+```
+
+### Oportunidades, notificações e conversas
+
+Prestadores escolhem os serviços que oferecem em uma única seleção e cadastram
+as regiões atendidas separadamente. Cada serviço selecionado vale para todas as
+regiões cadastradas:
+
+```HTTP
+GET /services
+GET /provider/services
+PUT /provider/services
+GET /provider/coverage
+POST /provider/coverage
+DELETE /provider/coverage/{areaId}
+```
+
+O `PUT /provider/services` recebe `{ "servicoIds": [1, 2, 3] }`. A cobertura
+recebe somente cidade e UF, por exemplo `{ "cidade": "Campinas", "uf": "SP" }`.
+
+Uma nova solicitação gera uma oportunidade para cada prestador ativo que atende
+ao mesmo serviço e cidade/UF. As oportunidades são notificações dentro do app:
+
+```HTTP
+GET /provider/opportunities
+PUT /provider/opportunities/read
+POST /provider/opportunities/{opportunityId}/accept
+POST /provider/opportunities/{opportunityId}/decline
+```
+
+Cada aceite cria uma conversa própria entre o cliente e o prestador:
+
+```HTTP
+GET /conversations
+GET /conversations/{conversationId}/messages
+POST /conversations/{conversationId}/messages
 ```
 
 ## Fluxo atual da plataforma

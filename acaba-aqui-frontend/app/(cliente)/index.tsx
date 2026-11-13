@@ -18,7 +18,7 @@ export default function HomeScreen() {
       <View style={styles.actions}>
         <AcabaAquiButton
           text="Solicitar serviço"
-          onPress={() => router.push('/(cliente)/novaSolicitacao')}
+          onPress={() => router.push('/cliente/novaSolicitacao')}
         />
         <AcabaAquiButton
           text="Minhas solicitações"

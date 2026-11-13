@@ -68,7 +68,7 @@ export default function SolicitacoesScreen() {
       <ScrollAreaView contentContainerStyle={styles.content}>
         <AcabaAquiButton
           text="Nova solicitação"
-          onPress={() => router.push('/(cliente)/novaSolicitacao')}
+          onPress={() => router.push('/cliente/novaSolicitacao')}
         />
         <View style={styles.filters}>
           <FilterButton label={`Todas (${requests.length})`} selected={filter === 'todas'}

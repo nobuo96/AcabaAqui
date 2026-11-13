@@ -31,6 +31,9 @@ public class ServiceRequestService {
     @Inject
     UserRepository userRepository;
 
+    @Inject
+    RequestOpportunityService opportunityService;
+
     public List<ServiceRequest> listar(Integer userId) {
         User user = userRepository.buscarUsuarioPorId(userId);
         return user == null ? null : requestRepository.listarPorUsuario(user);
@@ -70,6 +73,7 @@ public class ServiceRequestService {
         serviceRequest.setStatus(ServiceRequestStatus.CRIADA);
         copiarEndereco(address, serviceRequest);
         requestRepository.persist(serviceRequest);
+        opportunityService.notificarCorrespondentes(serviceRequest);
         return serviceRequest;
     }
 
@@ -83,6 +87,7 @@ public class ServiceRequestService {
             throw new IllegalStateException("A solicitação já está encerrada.");
         }
         request.setStatus(ServiceRequestStatus.ENCERRADA);
+        opportunityService.encerrarPendentes(requestId);
         return request;
     }
 

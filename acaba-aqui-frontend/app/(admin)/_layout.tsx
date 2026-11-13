@@ -1,12 +1,15 @@
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+export const unstable_settings = {
+  anchor: 'index',
+};
+
 export default function AdminLayout() {
   const insets = useSafeAreaInsets();
 
   return (
     <Tabs
-      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
@@ -38,7 +41,6 @@ export default function AdminLayout() {
       <Tabs.Screen name="index" options={{ title: 'Serviços' }} />
       <Tabs.Screen name="categorias" options={{ title: 'Categorias' }} />
       <Tabs.Screen name="perfil" options={{ title: 'Perfil' }} />
-      <Tabs.Screen name="informacoesPessoais" options={{ href: null }} />
     </Tabs>
   );
 }

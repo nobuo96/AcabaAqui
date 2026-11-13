@@ -6,7 +6,6 @@ export default function ClienteLayout() {
 
   return (
     <Tabs
-      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
@@ -48,27 +47,15 @@ export default function ClienteLayout() {
         }}
       />
       <Tabs.Screen
+        name="conversas"
+        options={{
+          title: 'Conversas',
+        }}
+      />
+      <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',
-        }}
-      />
-      <Tabs.Screen
-        name="novaSolicitacao"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="informacoesPessoais"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="alterarSenha"
-        options={{
-          href: null,
         }}
       />
     </Tabs>

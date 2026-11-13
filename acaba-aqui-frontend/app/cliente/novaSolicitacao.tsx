@@ -16,7 +16,7 @@ interface SavedAddress extends RequestAddress {
   principal: boolean;
 }
 
-export default function NovaSolicitacaoScreen() {
+export default function NovaSolicitacaoRoute() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [services, setServices] = useState<CatalogService[]>([]);

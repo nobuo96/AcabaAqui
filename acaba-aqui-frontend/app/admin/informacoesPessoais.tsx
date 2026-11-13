@@ -5,7 +5,7 @@ import { AcabaAquiButton } from '@/components/AcabaAquiButton';
 import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
 
-export default function InformacoesPessoaisScreen() {
+export default function InformacoesPessoaisRoute() {
   const router = useRouter();
 
   const handleBack = () => {

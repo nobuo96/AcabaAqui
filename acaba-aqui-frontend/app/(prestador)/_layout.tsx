@@ -1,12 +1,15 @@
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+export const unstable_settings = {
+  anchor: 'index',
+};
+
 export default function ClienteLayout() {
   const insets = useSafeAreaInsets();
 
   return (
-        <Tabs
-      initialRouteName="index"
+    <Tabs
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
@@ -42,21 +45,21 @@ export default function ClienteLayout() {
         }}
       />
       <Tabs.Screen
+        name="oportunidades"
+        options={{
+          title: 'Oportunidades',
+        }}
+      />
+      <Tabs.Screen
+        name="conversas"
+        options={{
+          title: 'Conversas',
+        }}
+      />
+      <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',
-        }}
-      />
-      <Tabs.Screen
-        name="informacoesPessoais"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="alterarSenha"
-        options={{
-          href: null,
         }}
       />
     </Tabs>

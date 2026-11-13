@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
+
 import { InformacoesPessoaisForm } from '@/components/InformacoesPessoaisForm';
 
-export default function InformacoesPessoaisScreen() {
+export default function InformacoesPessoaisRoute() {
   const router = useRouter();
 
   return (

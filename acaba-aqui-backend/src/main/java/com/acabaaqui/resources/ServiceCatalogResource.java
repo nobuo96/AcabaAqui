@@ -93,7 +93,8 @@ public class ServiceCatalogResource {
         if (isAdministrator(securityContext)) {
             return Response.ok(service.listarServicos(ativo).stream().map(this::toServiceResponse).toList()).build();
         }
-        if (securityContext != null && securityContext.isUserInRole("cliente")) {
+        if (securityContext != null && (securityContext.isUserInRole("cliente")
+                || securityContext.isUserInRole("prestador"))) {
             return Response.ok(service.listarServicos(true).stream().map(this::toServiceResponse).toList()).build();
         }
         return Response.status(Response.Status.FORBIDDEN).build();

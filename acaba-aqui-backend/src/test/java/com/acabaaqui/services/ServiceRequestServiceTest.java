@@ -41,6 +41,12 @@ class ServiceRequestServiceTest {
         ServiceRequest request = request(42, ServiceRequestStatus.CRIADA);
         ServiceRequestService service = new ServiceRequestService();
         service.requestRepository = new FakeRequestRepository(request);
+        service.opportunityService = new RequestOpportunityService() {
+            @Override
+            public int encerrarPendentes(Long requestId) {
+                return 0;
+            }
+        };
 
         ServiceRequest cancelled = service.cancelar(7, 42L);
 
@@ -52,6 +58,12 @@ class ServiceRequestServiceTest {
         ServiceRequest request = request(42, ServiceRequestStatus.CRIADA);
         ServiceRequestService service = new ServiceRequestService();
         service.requestRepository = new FakeRequestRepository(request);
+        service.opportunityService = new RequestOpportunityService() {
+            @Override
+            public int encerrarPendentes(Long requestId) {
+                return 0;
+            }
+        };
 
         assertNull(service.cancelar(8, 42L));
         service.cancelar(7, 42L);

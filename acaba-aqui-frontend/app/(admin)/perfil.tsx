@@ -21,7 +21,8 @@ export default function PerfilScreen() {
 
       <ScrollAreaView contentContainerStyle={styles.inner}>
         <Text style={styles.title}>Mais opções</Text>
-        <AcabaAquiOption text="Informações Pessoais" onPress={() => router.push('/(admin)/informacoesPessoais')} />
+        <AcabaAquiOption text="Informações Pessoais"
+          onPress={() => router.push('/admin/informacoesPessoais')} />
         <AcabaAquiOption text="Sair" onPress={handleLogout} />
       </ScrollAreaView>
     </View>
