@@ -22,6 +22,11 @@ export interface ServiceRequest {
   endereco: RequestAddress;
 }
 
+export interface VisitAvailabilityInput {
+  inicioLocal: string;
+  timeZoneId: string;
+}
+
 interface AddressResponse extends RequestAddress {
   principal: boolean;
 }
@@ -57,7 +62,12 @@ export const serviceRequestApi = {
       await apiFetch(`/user/${encodeURIComponent(userId)}/addresses`),
     );
   },
-  async create(userId: string, input: { servicoId: number; enderecoId: number; areaM2: number }) {
+  async create(userId: string, input: {
+    servicoId: number;
+    enderecoId: number;
+    areaM2: number;
+    horariosDisponiveis?: VisitAvailabilityInput[];
+  }) {
     return parseResponse<ServiceRequest>(await apiFetch(requestPath(userId), {
       method: 'POST',
       body: JSON.stringify(input),

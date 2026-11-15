@@ -1,9 +1,16 @@
 import React, { useState } from "react";
-import { StyleSheet, TextInput, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 
-export function AcabaAquiDropdown({data}: {data: {label: string, value: string}[]}) {
-  const [value, setValue] = useState(null);
+interface AcabaAquiDropdownProps {
+  data: { label: string; value: string }[];
+  value?: string | null;
+  onChange?: (value: string) => void;
+}
+
+export function AcabaAquiDropdown({ data, value, onChange }: AcabaAquiDropdownProps) {
+  const [uncontrolledValue, setUncontrolledValue] = useState<string | null>(null);
+  const selectedValue = value === undefined ? uncontrolledValue : value;
 
   return (
     <View style={styles.dropdownContainer}>
@@ -12,8 +19,11 @@ export function AcabaAquiDropdown({data}: {data: {label: string, value: string}[
         labelField="label"
         valueField="value"
         placeholder="Selecione um serviço"
-        value={value}
-        onChange={(item) => setValue(item.value)}
+        value={selectedValue}
+        onChange={(item) => {
+          setUncontrolledValue(item.value);
+          onChange?.(item.value);
+        }}
       />
     </View>
   );

@@ -35,6 +35,9 @@ FLUSH PRIVILEGES;
 ```
 
 ## Configuração do Backend
+
+As alterações do banco são aplicadas por migrations SQL incrementais em `acaba-aqui-backend/src/main/resources/db/migration`; o Hibernate não cria/atualiza o schema automaticamente. Aplique manualmente `v4_lifecycle_status_history.sql` após `v1`–`v3`, depois `v5_visit_scheduling.sql` e `v6_service_quotes_and_notifications.sql`. Se o banco já tem a v5 aplicada, execute somente a v6. A v6 cria orçamentos e notificações internas e ajusta a preservação do prestador em visitas concluídas.
+
 ### Variáveis obrigatórias
 
 O backend utiliza JWT para autenticação.
@@ -52,6 +55,75 @@ Defina a variável de ambiente:
 ```PowerShell
 $env:APP_JWT_SECRET="CHAVE_GERADA"
 ```
+
+Para testar Checkout Pro Orders, configure um Access Token de teste na sessão do PowerShell em que o backend será iniciado:
+
+```PowerShell
+$env:MERCADOPAGO_ACCESS_TOKEN="SEU_ACCESS_TOKEN_DE_TESTE"
+$env:MERCADOPAGO_ORDERS_SANDBOX_TEST_ENABLED="true"
+```
+
+O endpoint de criação de Order de teste fica desabilitado por padrão. Ative a variável acima somente em desenvolvimento local e somente junto a credenciais de teste; reinicie o backend após configurá-la. Não habilite essa opção em produção. O prefixo do Access Token não é usado para identificar o ambiente.
+
+Com o backend em execução, rode o script abaixo em outro PowerShell. Ele solicita as credenciais sem exibir a senha, faz login em `/auth/login`, verifica o perfil, imprime o JWT no terminal, testa a conexão e cria uma Order:
+
+```PowerShell
+$baseUrl = "http://localhost:8080"
+$email = Read-Host "E-mail do administrador"
+$securePassword = Read-Host "Senha do administrador" -AsSecureString
+$passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+
+try {
+    $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+    $loginBody = @{ email = $email; senha = $password } | ConvertTo-Json -Compress
+    $login = Invoke-RestMethod `
+        -Uri "$baseUrl/auth/login" `
+        -Method Post `
+        -ContentType "application/json" `
+        -Body $loginBody
+}
+finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
+    $password = $null
+    $loginBody = $null
+}
+
+if ($login.perfil -ine "administrador") {
+    throw "A conta autenticada não tem perfil de administrador."
+}
+if ([string]::IsNullOrWhiteSpace($login.token)) {
+    throw "A resposta de login não contém o JWT."
+}
+
+$adminJwt = $login.token
+Write-Host "JWT de administrador (não compartilhe):"
+Write-Host $adminJwt
+
+$authHeaders = @{ Authorization = "Bearer $adminJwt" }
+Write-Host "`nVerificação da integração:"
+Invoke-RestMethod `
+    -Uri "$baseUrl/payments/integration-check" `
+    -Method Get `
+    -Headers $authHeaders
+
+$orderHeaders = @{
+    Authorization = "Bearer $adminJwt"
+    "X-Idempotency-Key" = [guid]::NewGuid().ToString()
+}
+$orderBody = '{"description":"Servico de teste","amount":1.00}'
+Write-Host "`nCriando Checkout Pro Order de sandbox:"
+$order = Invoke-RestMethod `
+    -Uri "$baseUrl/payments/orders/sandbox-test" `
+    -Method Post `
+    -Headers $orderHeaders `
+    -ContentType "application/json" `
+    -Body $orderBody
+$order
+```
+
+Abra `checkoutUrl` para verificar o redirecionamento. Use somente credenciais de teste. O JWT é impresso localmente para facilitar inspeção, mas não o compartilhe nem o grave em arquivo. Cada nova Order deve usar uma chave de idempotência própria; reutilize a mesma chave apenas ao repetir a mesma tentativa.
+
+Esta etapa ainda não persiste pedidos nem implementa URLs de retorno do app, webhooks, confirmação do pagamento, cancelamento ou reembolso. Não use o endpoint de teste como fluxo de cobrança em produção. Mantenha o Access Token somente no ambiente/backend; não o coloque no app frontend nem no controle de versão.
 
 ### Configuração de e-mail
 
@@ -104,12 +176,15 @@ src/main/resources/db/migration
 Os principais arquivos atualmente são:
 
 ```Plain Text
-V1_features_epic1.sql
+v1_features_epic1.sql
 v2_request_communications.sql
 v3_provider_services_and_regions.sql
+v4_lifecycle_status_history.sql
+v5_visit_scheduling.sql
+v6_service_quotes_and_notifications.sql
 ```
 
-Execute as migrations em ordem antes de iniciar a aplicação.
+Execute apenas as migrations ainda não aplicadas, sempre em ordem, antes de iniciar a aplicação.
 
 ## Rodando o Backend
 
@@ -391,6 +466,39 @@ GET /user/{userId}/service-requests
 POST /user/{userId}/service-requests/{requestId}/cancel
 ```
 
+#### Horários de visita
+
+Na criação, `horariosDisponiveis` é opcional para manter clientes antigos compatíveis. Cada bloco deve começar em uma hora cheia e informar o fuso IANA do endereço. Todos os blocos da solicitação usam o mesmo fuso:
+
+```JSON
+{
+  "servicoId": 1,
+  "enderecoId": 5,
+  "areaM2": 75,
+  "horariosDisponiveis": [
+    {
+      "inicioLocal": "2030-05-10T09:00:00",
+      "timeZoneId": "America/Sao_Paulo"
+    },
+    {
+      "inicioLocal": "2030-05-10T11:00:00",
+      "timeZoneId": "America/Sao_Paulo"
+    }
+  ]
+}
+```
+
+O backend valida que os horários são futuros, não repetidos e inequívocos no fuso informado. O app permite escolher o fuso brasileiro correspondente ao endereço.
+
+```HTTP
+GET /visit-slots/requests/{requestId}
+POST /visit-slots/{slotId}/reserve
+POST /visit-slots/{slotId}/confirm
+POST /visit-slots/{slotId}/cancel
+```
+
+O prestador só pode reservar após aceitar a oportunidade e pode manter uma reserva ativa por solicitação. O cliente confirma e qualquer participante da visita pode cancelar; uma reserva cancelada antes do início libera o bloco. O mesmo bloco não pode ser reservado por dois prestadores: as alterações da solicitação são serializadas com bloqueio de linha no banco. Horários disponíveis expiram no início do bloco; reservas expiram ao final da hora. A expiração é aplicada sob demanda ao listar ou operar os horários, sem tarefa agendada.
+
 ### Oportunidades, notificações e conversas
 
 Prestadores escolhem os serviços que oferecem em uma única seleção e cadastram
@@ -410,7 +518,9 @@ O `PUT /provider/services` recebe `{ "servicoIds": [1, 2, 3] }`. A cobertura
 recebe somente cidade e UF, por exemplo `{ "cidade": "Campinas", "uf": "SP" }`.
 
 Uma nova solicitação gera uma oportunidade para cada prestador ativo que atende
-ao mesmo serviço e cidade/UF. As oportunidades são notificações dentro do app:
+ao mesmo serviço e cidade/UF. O prestador aceita a oportunidade e reserva um
+horário. O cliente confirma; somente então a conversa é criada e aparece para
+ambos. As oportunidades são notificações dentro do app:
 
 ```HTTP
 GET /provider/opportunities
@@ -419,7 +529,24 @@ POST /provider/opportunities/{opportunityId}/accept
 POST /provider/opportunities/{opportunityId}/decline
 ```
 
-Cada aceite cria uma conversa própria entre o cliente e o prestador:
+Após o horário de uma visita confirmada, o prestador pode enviar um orçamento com descrição e valor total. O cliente lista os orçamentos da solicitação e pode aprovar um ou recusar cada um. Cada orçamento enviado vence em 7 dias corridos; a aprovação cancela os demais orçamentos e os horários restantes.
+
+```HTTP
+POST /service-quotes/requests/{requestId}
+GET /service-quotes/requests/{requestId}
+POST /service-quotes/{quoteId}/approve
+POST /service-quotes/{quoteId}/reject
+GET /notifications
+PUT /notifications/{notificationId}/read
+```
+
+O `POST /service-quotes/requests/{requestId}` recebe `{ "descricao": "Serviço e materiais incluídos", "valorTotal": 1250.00 }`.
+
+O feed interno registra o envio, a decisão do cliente, o cancelamento e a expiração do orçamento. Prestadores veem somente seus orçamentos; o cliente dono da solicitação vê todos.
+
+Se todas as oportunidades forem recusadas, a solicitação é encerrada imediatamente. Sem aceite, solicitações com mais de 7 dias corridos também são encerradas por uma tarefa automática executada a cada 15 minutos; oportunidades pendentes e horários disponíveis são cancelados junto com a solicitação. Uma solicitação com ao menos uma oportunidade aceita permanece ativa para o agendamento.
+
+As conversas existentes e as criadas após confirmação são acessadas por:
 
 ```HTTP
 GET /conversations

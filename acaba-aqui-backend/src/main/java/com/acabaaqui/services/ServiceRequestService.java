@@ -5,6 +5,7 @@ import com.acabaaqui.model.ServiceCatalogItem;
 import com.acabaaqui.model.ServiceRequest;
 import com.acabaaqui.model.ServiceRequestStatus;
 import com.acabaaqui.model.User;
+import com.acabaaqui.services.LifecycleStatusTransitionPolicy;
 import com.acabaaqui.persistence.AddressRepository;
 import com.acabaaqui.persistence.ServiceCatalogRepository;
 import com.acabaaqui.persistence.ServiceRequestRepository;
@@ -33,6 +34,15 @@ public class ServiceRequestService {
 
     @Inject
     RequestOpportunityService opportunityService;
+
+    @Inject
+    LifecycleStatusService lifecycleStatusService;
+
+    @Inject
+    VisitSlotService visitSlotService;
+
+    @Inject
+    ServiceRequestClosureService closureService;
 
     public List<ServiceRequest> listar(Integer userId) {
         User user = userRepository.buscarUsuarioPorId(userId);
@@ -73,6 +83,14 @@ public class ServiceRequestService {
         serviceRequest.setStatus(ServiceRequestStatus.CRIADA);
         copiarEndereco(address, serviceRequest);
         requestRepository.persist(serviceRequest);
+        lifecycleStatusService.registrarTransicao(
+                LifecycleStatusTransitionPolicy.SOLICITACAO,
+                serviceRequest.getId(),
+                null,
+                ServiceRequestStatus.CRIADA.name(),
+                LifecycleStatusTransitionPolicy.CLIENTE,
+                user);
+        visitSlotService.criarDisponibilidades(serviceRequest, request.horariosDisponiveis(), user);
         opportunityService.notificarCorrespondentes(serviceRequest);
         return serviceRequest;
     }
@@ -86,8 +104,7 @@ public class ServiceRequestService {
         if (request.getStatus() == ServiceRequestStatus.ENCERRADA) {
             throw new IllegalStateException("A solicitação já está encerrada.");
         }
-        request.setStatus(ServiceRequestStatus.ENCERRADA);
-        opportunityService.encerrarPendentes(requestId);
+        closureService.encerrar(request, request.getUsuario(), LifecycleStatusTransitionPolicy.CLIENTE);
         return request;
     }
 
@@ -116,5 +133,13 @@ public class ServiceRequestService {
         request.setEnderecoApelido(address.getApelido());
     }
 
-    public record CreateServiceRequest(Integer servicoId, Long enderecoId, BigDecimal areaM2) { }
+    public record CreateServiceRequest(
+            Integer servicoId,
+            Long enderecoId,
+            BigDecimal areaM2,
+            List<VisitSlotService.AvailabilityRequest> horariosDisponiveis) {
+        public CreateServiceRequest(Integer servicoId, Long enderecoId, BigDecimal areaM2) {
+            this(servicoId, enderecoId, areaM2, List.of());
+        }
+    }
 }

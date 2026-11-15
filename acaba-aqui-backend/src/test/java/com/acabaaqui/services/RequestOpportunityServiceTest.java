@@ -1,13 +1,11 @@
 package com.acabaaqui.services;
 
-import com.acabaaqui.model.Conversation;
 import com.acabaaqui.model.RequestOpportunity;
 import com.acabaaqui.model.RequestOpportunityStatus;
 import com.acabaaqui.model.ServiceCatalogItem;
 import com.acabaaqui.model.ServiceRequest;
 import com.acabaaqui.model.ServiceRequestStatus;
 import com.acabaaqui.model.User;
-import com.acabaaqui.persistence.ConversationRepository;
 import com.acabaaqui.persistence.ProviderRegionRepository;
 import com.acabaaqui.persistence.RequestOpportunityRepository;
 import com.acabaaqui.persistence.ServiceRequestRepository;
@@ -18,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 class RequestOpportunityServiceTest {
 
@@ -31,6 +28,8 @@ class RequestOpportunityServiceTest {
         RequestOpportunityService service = new RequestOpportunityService();
         service.areaRepository = coverage;
         service.opportunityRepository = opportunities;
+        RecordingLifecycleStatusService history = new RecordingLifecycleStatusService();
+        service.lifecycleStatusService = history;
 
         ServiceRequest request = request();
         service.notificarCorrespondentes(request);
@@ -41,10 +40,12 @@ class RequestOpportunityServiceTest {
         assertEquals(List.of(11, 12), opportunities.records.stream()
                 .map(item -> item.getPrestador().getId()).toList());
         assertEquals(RequestOpportunityStatus.PENDENTE, opportunities.records.get(0).getStatus());
+        assertEquals(2, history.transitions.size());
+        assertEquals(LifecycleStatusTransitionPolicy.SISTEMA, history.transitions.get(0).actorType());
     }
 
     @Test
-    void multipleProvidersCanAcceptAndRepeatedAcceptanceReturnsTheSameConversation() {
+    void multipleProvidersCanAcceptWithoutOpeningChatAndRepeatedAcceptanceIsIdempotent() {
         User client = user(5);
         User firstProvider = user(11);
         User secondProvider = user(12);
@@ -54,23 +55,25 @@ class RequestOpportunityServiceTest {
         RequestOpportunity first = opportunity(101, request, firstProvider);
         RequestOpportunity second = opportunity(102, request, secondProvider);
         opportunities.records.addAll(List.of(first, second));
-        FakeConversationRepository conversations = new FakeConversationRepository();
         FakeUserRepository users = new FakeUserRepository(List.of(firstProvider, secondProvider));
         RequestOpportunityService service = new RequestOpportunityService();
         service.opportunityRepository = opportunities;
         service.requestRepository = new FakeServiceRequestRepository(request);
-        service.conversationRepository = conversations;
         service.userRepository = users;
+        RecordingLifecycleStatusService history = new RecordingLifecycleStatusService();
+        service.lifecycleStatusService = history;
 
-        RequestOpportunityService.AcceptedConversation firstChat = service.aceitar(11, 101L);
-        RequestOpportunityService.AcceptedConversation secondChat = service.aceitar(12, 102L);
-        RequestOpportunityService.AcceptedConversation repeatedFirstAcceptance = service.aceitar(11, 101L);
+        RequestOpportunity firstAccepted = service.aceitar(11, 101L);
+        RequestOpportunity secondAccepted = service.aceitar(12, 102L);
+        RequestOpportunity repeatedFirstAcceptance = service.aceitar(11, 101L);
 
-        assertNotSame(firstChat, secondChat);
-        assertEquals(firstChat.id(), repeatedFirstAcceptance.id());
-        assertEquals(2, conversations.records.size());
+        assertEquals(first.getId(), firstAccepted.getId());
+        assertEquals(second.getId(), secondAccepted.getId());
+        assertEquals(first.getId(), repeatedFirstAcceptance.getId());
         assertEquals(RequestOpportunityStatus.ACEITA, first.getStatus());
         assertEquals(RequestOpportunityStatus.ACEITA, second.getStatus());
+        assertEquals(2, history.transitions.size());
+        assertEquals(LifecycleStatusTransitionPolicy.PRESTADOR, history.transitions.get(0).actorType());
     }
 
     @Test
@@ -83,12 +86,56 @@ class RequestOpportunityServiceTest {
         opportunities.records.addAll(List.of(pending, accepted));
         RequestOpportunityService service = new RequestOpportunityService();
         service.opportunityRepository = opportunities;
+        RecordingLifecycleStatusService history = new RecordingLifecycleStatusService();
+        service.lifecycleStatusService = history;
 
         int closed = service.encerrarPendentes(request.getId());
 
         assertEquals(1, closed);
         assertEquals(RequestOpportunityStatus.ENCERRADA, pending.getStatus());
         assertEquals(RequestOpportunityStatus.ACEITA, accepted.getStatus());
+        assertEquals(1, history.transitions.size());
+        assertEquals(LifecycleStatusTransitionPolicy.SISTEMA, history.transitions.get(0).actorType());
+    }
+
+    @Test
+    void closesRequestImmediatelyAfterTheLastOpportunityIsDeclined() {
+        ServiceRequest request = request();
+        RequestOpportunity first = opportunity(101, request, user(11));
+        RequestOpportunity second = opportunity(102, request, user(12));
+        FakeOpportunityRepository opportunities = new FakeOpportunityRepository();
+        opportunities.records.addAll(List.of(first, second));
+        FakeUserRepository users = new FakeUserRepository(List.of(first.getPrestador(), second.getPrestador()));
+        RecordingLifecycleStatusService history = new RecordingLifecycleStatusService();
+        ServiceRequestClosureService closure = new ServiceRequestClosureService();
+        closure.opportunityRepository = opportunities;
+        closure.lifecycleStatusService = history;
+        closure.quoteService = new ServiceQuoteService() {
+            @Override
+            public void cancelarTodosPorSolicitacao(ServiceRequest serviceRequest, User actor, String actorType) {
+            }
+        };
+        closure.visitSlotService = new VisitSlotService() {
+            @Override
+            public void cancelarTodosPorSolicitacao(ServiceRequest serviceRequest, User actor, String actorType) {
+            }
+        };
+        RequestOpportunityService service = new RequestOpportunityService();
+        service.opportunityRepository = opportunities;
+        service.requestRepository = new FakeServiceRequestRepository(request);
+        service.userRepository = users;
+        service.lifecycleStatusService = history;
+        service.closureService = closure;
+
+        service.recusar(11, 101L);
+        assertEquals(ServiceRequestStatus.CRIADA, request.getStatus());
+        service.recusar(12, 102L);
+
+        assertEquals(ServiceRequestStatus.ENCERRADA, request.getStatus());
+        assertEquals(RequestOpportunityStatus.RECUSADA, first.getStatus());
+        assertEquals(RequestOpportunityStatus.RECUSADA, second.getStatus());
+        assertEquals(3, history.transitions.size());
+        assertEquals(LifecycleStatusTransitionPolicy.SISTEMA, history.transitions.get(2).actorType());
     }
 
     private ServiceRequest request() {
@@ -154,6 +201,13 @@ class RequestOpportunityServiceTest {
         }
 
         @Override
+        public List<RequestOpportunity> listarPorSolicitacaoComBloqueio(Long requestId) {
+            return records.stream()
+                    .filter(item -> item.getSolicitacao().getId().equals(requestId))
+                    .toList();
+        }
+
+        @Override
         public List<RequestOpportunity> list(String query, Object... params) {
             Long requestId = (Long) params[0];
             RequestOpportunityStatus status = (RequestOpportunityStatus) params[1];
@@ -175,22 +229,6 @@ class RequestOpportunityServiceTest {
         }
     }
 
-    private static class FakeConversationRepository extends ConversationRepository {
-        private final List<Conversation> records = new ArrayList<>();
-
-        @Override
-        public Conversation buscarPorSolicitacaoEPrestador(Long requestId, Integer providerId) {
-            return records.stream().filter(item -> item.getSolicitacao().getId().equals(requestId)
-                    && item.getPrestador().getId().equals(providerId)).findFirst().orElse(null);
-        }
-
-        @Override
-        public void persist(Conversation conversation) {
-            conversation.setId((long) records.size() + 1);
-            records.add(conversation);
-        }
-    }
-
     private static class FakeUserRepository extends UserRepository {
         private final List<User> records;
 
@@ -203,4 +241,24 @@ class RequestOpportunityServiceTest {
             return records.stream().filter(user -> user.getId().equals(id)).findFirst().orElse(null);
         }
     }
+
+    private static class RecordingLifecycleStatusService extends LifecycleStatusService {
+        private final List<RecordedTransition> transitions = new ArrayList<>();
+
+        @Override
+        public void registrarTransicao(
+                String entityType,
+                Long entityId,
+                String previousStatus,
+                String newStatus,
+                String actorType,
+                User actor) {
+            LifecycleStatusTransitionPolicy.validar(entityType, previousStatus, newStatus, actorType);
+            transitions.add(new RecordedTransition(
+                    entityType, entityId, previousStatus, newStatus, actorType, actor));
+        }
+    }
+
+    private record RecordedTransition(String entityType, Long entityId, String previousStatus,
+                                      String newStatus, String actorType, User actor) { }
 }

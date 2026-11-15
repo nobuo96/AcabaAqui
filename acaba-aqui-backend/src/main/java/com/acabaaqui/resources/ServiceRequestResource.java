@@ -3,6 +3,7 @@ package com.acabaaqui.resources;
 import com.acabaaqui.model.ServiceRequest;
 import com.acabaaqui.model.ServiceRequestStatus;
 import com.acabaaqui.services.ServiceRequestService;
+import com.acabaaqui.services.VisitSlotService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -17,6 +18,7 @@ import jakarta.ws.rs.core.SecurityContext;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Path("/user/{userId}/service-requests")
 @Produces(MediaType.APPLICATION_JSON)
@@ -46,7 +48,8 @@ public class ServiceRequestResource {
         try {
             ServiceRequest created = service.criar(userId, request == null ? null
                     : new ServiceRequestService.CreateServiceRequest(
-                            request.servicoId(), request.enderecoId(), request.areaM2()));
+                            request.servicoId(), request.enderecoId(), request.areaM2(),
+                            request.horariosDisponiveis()));
             return created == null
                     ? Response.status(Response.Status.NOT_FOUND)
                         .entity(new ErrorResponse("Usuário não encontrado.")).build()
@@ -101,7 +104,11 @@ public class ServiceRequestResource {
                         request.getEnderecoApelido()));
     }
 
-    public record CreateRequest(Integer servicoId, Long enderecoId, BigDecimal areaM2) { }
+    public record CreateRequest(
+            Integer servicoId,
+            Long enderecoId,
+            BigDecimal areaM2,
+            List<VisitSlotService.AvailabilityRequest> horariosDisponiveis) { }
     public record AddressSnapshot(Long id, String cep, String logradouro, String numero, String complemento,
                                   String bairro, String cidade, String uf, String apelido) { }
     public record ServiceRequestResponse(Long id, Integer servicoId, String servicoNome, BigDecimal areaM2,

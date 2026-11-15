@@ -1,12 +1,10 @@
 package com.acabaaqui.services;
 
-import com.acabaaqui.model.Conversation;
 import com.acabaaqui.model.RequestOpportunity;
 import com.acabaaqui.model.RequestOpportunityStatus;
 import com.acabaaqui.model.ServiceRequest;
 import com.acabaaqui.model.ServiceRequestStatus;
 import com.acabaaqui.model.User;
-import com.acabaaqui.persistence.ConversationRepository;
 import com.acabaaqui.persistence.ProviderRegionRepository;
 import com.acabaaqui.persistence.RequestOpportunityRepository;
 import com.acabaaqui.persistence.ServiceRequestRepository;
@@ -15,7 +13,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @ApplicationScoped
@@ -31,10 +28,13 @@ public class RequestOpportunityService {
     ServiceRequestRepository requestRepository;
 
     @Inject
-    ConversationRepository conversationRepository;
+    UserRepository userRepository;
 
     @Inject
-    UserRepository userRepository;
+    LifecycleStatusService lifecycleStatusService;
+
+    @Inject
+    ServiceRequestClosureService closureService;
 
     public List<RequestOpportunity> listar(Integer providerId) {
         User provider = userRepository.buscarUsuarioPorId(providerId);
@@ -50,6 +50,13 @@ public class RequestOpportunityService {
             opportunity.setSolicitacao(request);
             opportunity.setPrestador(provider);
             opportunityRepository.persist(opportunity);
+            lifecycleStatusService.registrarTransicao(
+                    LifecycleStatusTransitionPolicy.OPORTUNIDADE,
+                    opportunity.getId(),
+                    null,
+                    RequestOpportunityStatus.PENDENTE.name(),
+                    LifecycleStatusTransitionPolicy.SISTEMA,
+                    null);
         }
     }
 
@@ -62,7 +69,7 @@ public class RequestOpportunityService {
     }
 
     @Transactional
-    public AcceptedConversation aceitar(Integer providerId, Long opportunityId) {
+    public RequestOpportunity aceitar(Integer providerId, Long opportunityId) {
         RequestOpportunity initial = opportunityRepository.buscarParaPrestador(
                 opportunityId, userRepository.buscarUsuarioPorId(providerId));
         if (initial == null) {
@@ -79,22 +86,20 @@ public class RequestOpportunityService {
             return null;
         }
         if (opportunity.getStatus() == RequestOpportunityStatus.ACEITA) {
-            return detalhesDaConversa(conversationRepository.buscarPorSolicitacaoEPrestador(
-                    request.getId(), providerId));
+            return opportunity;
         }
         validarPendente(request, opportunity);
 
-        Conversation conversation = conversationRepository.buscarPorSolicitacaoEPrestador(request.getId(), providerId);
-        if (conversation == null) {
-            conversation = new Conversation();
-            conversation.setSolicitacao(request);
-            conversation.setCliente(request.getUsuario());
-            conversation.setPrestador(provider);
-            conversationRepository.persist(conversation);
-        }
+        lifecycleStatusService.registrarTransicao(
+                LifecycleStatusTransitionPolicy.OPORTUNIDADE,
+                opportunity.getId(),
+                opportunity.getStatus().name(),
+                RequestOpportunityStatus.ACEITA.name(),
+                LifecycleStatusTransitionPolicy.PRESTADOR,
+                provider);
         opportunity.setStatus(RequestOpportunityStatus.ACEITA);
         opportunity.setLida(true);
-        return detalhesDaConversa(conversation);
+        return opportunity;
     }
 
     @Transactional
@@ -114,16 +119,38 @@ public class RequestOpportunityService {
             return null;
         }
         validarPendente(request, opportunity);
+        lifecycleStatusService.registrarTransicao(
+                LifecycleStatusTransitionPolicy.OPORTUNIDADE,
+                opportunity.getId(),
+                opportunity.getStatus().name(),
+                RequestOpportunityStatus.RECUSADA.name(),
+                LifecycleStatusTransitionPolicy.PRESTADOR,
+                opportunity.getPrestador());
         opportunity.setStatus(RequestOpportunityStatus.RECUSADA);
         opportunity.setLida(true);
+        closureService.encerrarSeTodasRecusadas(request);
         return opportunity;
     }
 
     @Transactional
     public int encerrarPendentes(Long requestId) {
+        return encerrarPendentes(requestId, null, LifecycleStatusTransitionPolicy.SISTEMA);
+    }
+
+    @Transactional
+    public int encerrarPendentes(Long requestId, User actor, String actorType) {
         List<RequestOpportunity> pending = opportunityRepository.list(
                 "solicitacao.id = ?1 and status = ?2", requestId, RequestOpportunityStatus.PENDENTE);
-        pending.forEach(opportunity -> opportunity.setStatus(RequestOpportunityStatus.ENCERRADA));
+        pending.forEach(opportunity -> {
+            lifecycleStatusService.registrarTransicao(
+                    LifecycleStatusTransitionPolicy.OPORTUNIDADE,
+                    opportunity.getId(),
+                    opportunity.getStatus().name(),
+                    RequestOpportunityStatus.ENCERRADA.name(),
+                    actorType,
+                    actor);
+            opportunity.setStatus(RequestOpportunityStatus.ENCERRADA);
+        });
         return pending.size();
     }
 
@@ -134,17 +161,4 @@ public class RequestOpportunityService {
         }
     }
 
-    private AcceptedConversation detalhesDaConversa(Conversation conversation) {
-        return conversation == null ? null : new AcceptedConversation(
-                conversation.getId(),
-                conversation.getSolicitacao().getServico().getNome(),
-                conversation.getCliente().getNome(),
-                conversation.getPrestador().getNome(),
-                conversation.getSolicitacao().getEnderecoCidade(),
-                conversation.getSolicitacao().getEnderecoUf(),
-                conversation.getDataCriacao());
-    }
-
-    public record AcceptedConversation(Long id, String servicoNome, String clienteNome, String prestadorNome,
-                                       String cidade, String uf, LocalDateTime dataCriacao) { }
 }

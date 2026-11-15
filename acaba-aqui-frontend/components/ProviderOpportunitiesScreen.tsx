@@ -5,13 +5,20 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
 import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
-import { communicationApi, type RequestOpportunity } from '@/lib/communicationApi';
+import {
+  communicationApi,
+  visitSlotApi,
+  type RequestOpportunity,
+  type VisitSlot,
+} from '@/lib/communicationApi';
 
 export function ProviderOpportunitiesScreen() {
   const router = useRouter();
   const [opportunities, setOpportunities] = useState<RequestOpportunity[]>([]);
+  const [visitSlotsByRequest, setVisitSlotsByRequest] = useState<Record<number, VisitSlot[]>>({});
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<number | null>(null);
+  const [workingSlotId, setWorkingSlotId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -19,7 +26,12 @@ export function ProviderOpportunitiesScreen() {
     setError('');
     try {
       const items = await communicationApi.listOpportunities();
+      const slotsByRequest: Record<number, VisitSlot[]> = {};
+      await Promise.all(items.filter((item) => item.status === 'ACEITA').map(async (item) => {
+        slotsByRequest[item.solicitacaoId] = await visitSlotApi.list(item.solicitacaoId);
+      }));
       setOpportunities(items);
+      setVisitSlotsByRequest(slotsByRequest);
       await communicationApi.markOpportunitiesRead();
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Não foi possível carregar as oportunidades.');
@@ -40,8 +52,11 @@ export function ProviderOpportunitiesScreen() {
     setError('');
     try {
       if (action === 'accept') {
-        const conversation = await communicationApi.acceptOpportunity(item.id);
-        router.push({ pathname: '/chat/[conversationId]', params: { conversationId: String(conversation.id) } });
+        await communicationApi.acceptOpportunity(item.id);
+        const slots = await visitSlotApi.list(item.solicitacaoId);
+        setVisitSlotsByRequest((current) => ({ ...current, [item.solicitacaoId]: slots }));
+        setOpportunities((current) => current.map((opportunity) => opportunity.id === item.id
+          ? { ...opportunity, status: 'ACEITA' } : opportunity));
       } else {
         await communicationApi.declineOpportunity(item.id);
         setOpportunities((current) => current.map((opportunity) => opportunity.id === item.id
@@ -52,6 +67,27 @@ export function ProviderOpportunitiesScreen() {
       await load();
     } finally {
       setWorkingId(null);
+    }
+  }
+
+  async function updateVisit(slotId: number, action: 'reserve' | 'cancel') {
+    if (workingSlotId !== null) {
+      return;
+    }
+    setWorkingSlotId(slotId);
+    setError('');
+    try {
+      if (action === 'reserve') {
+        await visitSlotApi.reserve(slotId);
+      } else {
+        await visitSlotApi.cancel(slotId);
+      }
+      await load();
+    } catch (visitError) {
+      setError(visitError instanceof Error ? visitError.message : 'Não foi possível atualizar a visita.');
+      await load();
+    } finally {
+      setWorkingSlotId(null);
     }
   }
 
@@ -76,14 +112,61 @@ export function ProviderOpportunitiesScreen() {
             <Text style={styles.date}>Recebida em {new Date(item.dataCriacao).toLocaleString('pt-BR')}</Text>
             {item.status === 'PENDENTE' ? (
               <View style={styles.actions}>
-                <Pressable disabled={workingId !== null} onPress={() => { void respond(item, 'accept'); }}
+                <Pressable disabled={workingId !== null || workingSlotId !== null}
+                  onPress={() => { void respond(item, 'accept'); }}
                   style={[styles.actionButton, styles.acceptButton]}>
-                  <Text style={styles.actionText}>{workingId === item.id ? 'Aguarde...' : 'Aceitar orçamento'}</Text>
+                  <Text style={styles.actionText}>{workingId === item.id ? 'Aguarde...' : 'Aceitar oportunidade'}</Text>
                 </Pressable>
-                <Pressable disabled={workingId !== null} onPress={() => { void respond(item, 'decline'); }}
+                <Pressable disabled={workingId !== null || workingSlotId !== null}
+                  onPress={() => { void respond(item, 'decline'); }}
                   style={[styles.actionButton, styles.declineButton]}>
                   <Text style={[styles.actionText, styles.declineText]}>Recusar</Text>
                 </Pressable>
+              </View>
+            ) : null}
+            {item.status === 'ACEITA' ? (
+              <View style={styles.visitSection}>
+                <Text style={styles.visitHeading}>Horários de visita</Text>
+                <Text style={styles.muted}>O chat ficará disponível após o cliente confirmar.</Text>
+                {(visitSlotsByRequest[item.solicitacaoId] ?? []).length === 0
+                  ? <Text style={styles.muted}>O cliente ainda não informou horários disponíveis.</Text>
+                  : (visitSlotsByRequest[item.solicitacaoId] ?? []).map((slot) => (
+                    <View key={slot.id} style={styles.slot}>
+                      <View style={styles.slotInfo}>
+                        <Text style={styles.detail}>{formatVisitTime(slot)}</Text>
+                        <Text style={styles.slotStatus}>{visitStatusLabel(slot)}</Text>
+                      </View>
+                      {slot.status === 'DISPONIVEL' ? (
+                        <Pressable
+                          disabled={workingSlotId !== null || workingId !== null}
+                          onPress={() => { void updateVisit(slot.id, 'reserve'); }}
+                          style={styles.slotButton}
+                        >
+                          <Text style={styles.slotButtonText}>
+                            {workingSlotId === slot.id ? 'Reservando...' : 'Reservar'}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                      {(slot.status === 'RESERVADA' || slot.status === 'CONFIRMADA')
+                        && slot.prestadorId !== null ? (
+                          <View style={styles.slotActions}>
+                            {slot.status === 'CONFIRMADA' ? (
+                              <Pressable onPress={() => router.push('/(prestador)/conversas')}>
+                                <Text style={styles.link}>Abrir conversas</Text>
+                              </Pressable>
+                            ) : null}
+                            <Pressable
+                              disabled={workingSlotId !== null || workingId !== null}
+                              onPress={() => { void updateVisit(slot.id, 'cancel'); }}
+                            >
+                              <Text style={styles.cancelVisit}>
+                                {workingSlotId === slot.id ? 'Cancelando...' : 'Cancelar visita'}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                    </View>
+                  ))}
               </View>
             ) : null}
           </View>
@@ -94,7 +177,28 @@ export function ProviderOpportunitiesScreen() {
 }
 
 function statusLabel(status: RequestOpportunity['status']) {
-  return { PENDENTE: 'Nova', ACEITA: 'Aceita', RECUSADA: 'Recusada', ENCERRADA: 'Encerrada' }[status];
+  return {
+    PENDENTE: 'Nova',
+    ACEITA: 'Aceita',
+    RECUSADA: 'Recusada',
+    ENCERRADA: 'Encerrada',
+  }[status];
+}
+
+function formatVisitTime(slot: VisitSlot) {
+  const [date, time] = slot.inicioLocal.split('T');
+  return `${date} às ${time.slice(0, 5)} (${slot.timeZoneId})`;
+}
+
+function visitStatusLabel(slot: VisitSlot) {
+  if (slot.status === 'DISPONIVEL') return 'Disponível';
+  if (slot.status === 'RESERVADA') {
+    return slot.prestadorId === null ? 'Reservado por outro prestador' : 'Aguardando confirmação do cliente';
+  }
+  if (slot.status === 'CONFIRMADA') {
+    return slot.prestadorId === null ? 'Confirmado por outro prestador' : 'Confirmada pelo cliente';
+  }
+  return slot.status === 'CANCELADA' ? 'Cancelada' : 'Expirada';
 }
 
 function formatArea(value: number) {
@@ -120,4 +224,15 @@ const styles = StyleSheet.create({
   declineText: { color: '#a43434' },
   muted: { color: '#666', lineHeight: 21 },
   error: { color: '#a43434' },
+  visitSection: { borderTopColor: '#eee', borderTopWidth: 1, gap: 9, marginTop: 4, paddingTop: 10 },
+  visitHeading: { color: '#333', fontSize: 15, fontWeight: '700' },
+  slot: { alignItems: 'center', borderColor: '#e1e1e1', borderRadius: 9, borderWidth: 1,
+    flexDirection: 'row', gap: 8, justifyContent: 'space-between', padding: 10 },
+  slotInfo: { flex: 1, gap: 4 },
+  slotStatus: { color: '#666', fontSize: 12 },
+  slotButton: { backgroundColor: '#a43434', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
+  slotButtonText: { color: '#fff', fontWeight: '700' },
+  slotActions: { alignItems: 'flex-end', gap: 8 },
+  link: { color: '#a43434', fontWeight: '700' },
+  cancelVisit: { color: '#a43434', fontWeight: '600' },
 });

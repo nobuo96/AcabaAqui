@@ -27,4 +27,14 @@ public class RequestOpportunityRepository implements PanacheRepository<RequestOp
                 .withLock(LockModeType.PESSIMISTIC_WRITE).firstResult();
     }
 
+    public List<RequestOpportunity> listarPorSolicitacaoComBloqueio(Long requestId) {
+        return find("solicitacao.id = ?1", requestId)
+                .withLock(LockModeType.PESSIMISTIC_READ).list();
+    }
+
+    public boolean temOportunidadeAceita(Long requestId, Integer providerId) {
+        return count("solicitacao.id = ?1 and prestador.id = ?2 and status = ?3",
+                requestId, providerId, RequestOpportunityStatus.ACEITA) > 0;
+    }
+
 }

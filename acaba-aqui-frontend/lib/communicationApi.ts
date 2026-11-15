@@ -39,6 +39,21 @@ export interface ChatMessage {
   dataCriacao: string;
 }
 
+export interface VisitSlot {
+  id: number;
+  inicioLocal: string;
+  fimLocal: string;
+  timeZoneId: string;
+  status: 'DISPONIVEL' | 'RESERVADA' | 'CONFIRMADA' | 'CANCELADA' | 'EXPIRADA';
+  prestadorId: number | null;
+  prestadorNome: string | null;
+}
+
+export interface VisitConfirmation {
+  visita: VisitSlot;
+  conversationId: number;
+}
+
 async function request<T>(path: string, method = 'GET', body?: object): Promise<T> {
   const response = await apiFetch(path, {
     method,
@@ -82,7 +97,7 @@ export const communicationApi = {
   listOpportunities: () => request<RequestOpportunity[]>('/provider/opportunities'),
   markOpportunitiesRead: () => request<{ atualizadas: number }>('/provider/opportunities/read', 'PUT'),
   acceptOpportunity: (id: number) =>
-    request<Conversation>(`/provider/opportunities/${id}/accept`, 'POST'),
+    request<void>(`/provider/opportunities/${id}/accept`, 'POST'),
   declineOpportunity: (id: number) =>
     request<RequestOpportunity>(`/provider/opportunities/${id}/decline`, 'POST'),
   listConversations: () => request<Conversation[]>('/conversations'),
@@ -90,4 +105,12 @@ export const communicationApi = {
     request<ChatMessage[]>(`/conversations/${conversationId}/messages`),
   sendMessage: (conversationId: number, conteudo: string) =>
     request<ChatMessage>(`/conversations/${conversationId}/messages`, 'POST', { conteudo }),
+};
+
+export const visitSlotApi = {
+  list: (requestId: number) => request<VisitSlot[]>(`/visit-slots/requests/${requestId}`),
+  reserve: (slotId: number) => request<VisitSlot>(`/visit-slots/${slotId}/reserve`, 'POST'),
+  confirm: (slotId: number) =>
+    request<VisitConfirmation>(`/visit-slots/${slotId}/confirm`, 'POST'),
+  cancel: (slotId: number) => request<VisitSlot>(`/visit-slots/${slotId}/cancel`, 'POST'),
 };

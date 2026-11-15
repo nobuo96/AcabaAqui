@@ -43,7 +43,7 @@ export function ConversationsScreen() {
         {loading ? <Text style={styles.muted}>Carregando conversas...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {!loading && !error && conversations.length === 0
-          ? <Text style={styles.muted}>Quando um prestador aceitar fazer um orçamento, a conversa aparecerá aqui.</Text>
+          ? <Text style={styles.muted}>Após a confirmação de uma visita, a conversa aparecerá aqui.</Text>
           : null}
         {conversations.map((conversation) => {
           const otherParticipant = String(conversation.clienteId) === userId

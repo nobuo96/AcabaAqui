@@ -8,17 +8,20 @@ import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
 import { getAuthUserId } from '@/lib/authToken';
 import { serviceRequestApi, type ServiceRequest } from '@/lib/serviceRequestApi';
+import { visitSlotApi, type VisitSlot } from '@/lib/communicationApi';
 
 type Filter = 'todas' | 'abertas';
 
 export default function SolicitacoesScreen() {
   const router = useRouter();
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [visitSlotsByRequest, setVisitSlotsByRequest] = useState<Record<number, VisitSlot[]>>({});
   const [filter, setFilter] = useState<Filter>('todas');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [workingVisitId, setWorkingVisitId] = useState<number | null>(null);
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -28,7 +31,13 @@ export default function SolicitacoesScreen() {
       if (!userId) {
         throw new Error('Sessão não encontrada. Entre novamente.');
       }
-      setRequests(await serviceRequestApi.list(userId));
+      const items = await serviceRequestApi.list(userId);
+      const slotsByRequest: Record<number, VisitSlot[]> = {};
+      await Promise.all(items.map(async (request) => {
+        slotsByRequest[request.id] = await visitSlotApi.list(request.id);
+      }));
+      setRequests(items);
+      setVisitSlotsByRequest(slotsByRequest);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Não foi possível carregar as solicitações.');
     } finally {
@@ -55,6 +64,32 @@ export default function SolicitacoesScreen() {
       setError(cancelError instanceof Error ? cancelError.message : 'Não foi possível cancelar a solicitação.');
     } finally {
       setCancellingId(null);
+    }
+  }
+
+  async function respondToVisit(slot: VisitSlot, action: 'confirm' | 'cancel') {
+    if (workingVisitId !== null) {
+      return;
+    }
+    setWorkingVisitId(slot.id);
+    setError('');
+    try {
+      if (action === 'confirm') {
+        const result = await visitSlotApi.confirm(slot.id);
+        await loadRequests();
+        router.push({
+          pathname: '/chat/[conversationId]',
+          params: { conversationId: String(result.conversationId) },
+        });
+      } else {
+        await visitSlotApi.cancel(slot.id);
+        await loadRequests();
+      }
+    } catch (visitError) {
+      setError(visitError instanceof Error ? visitError.message : 'Não foi possível atualizar a visita.');
+      await loadRequests();
+    } finally {
+      setWorkingVisitId(null);
     }
   }
 
@@ -96,6 +131,54 @@ export default function SolicitacoesScreen() {
             <Text style={styles.detail}>Área: {formatArea(request.areaM2)} m²</Text>
             <Text style={styles.detail}>{formatAddress(request)}</Text>
             <Text style={styles.date}>Criada em {formatDate(request.dataCriacao)}</Text>
+
+            <View style={styles.visits}>
+              <Text style={styles.visitHeading}>Horários de visita</Text>
+              {(visitSlotsByRequest[request.id] ?? []).length === 0
+                ? <Text style={styles.muted}>Nenhum horário disponível cadastrado.</Text>
+                : (visitSlotsByRequest[request.id] ?? []).map((slot) => (
+                  <View key={slot.id} style={styles.visitCard}>
+                    <View style={styles.visitInfo}>
+                      <Text style={styles.detail}>{formatVisitTime(slot)}</Text>
+                      <Text style={styles.muted}>{visitStatusLabel(slot)}</Text>
+                      {slot.prestadorNome ? (
+                        <Text style={styles.muted}>Prestador: {slot.prestadorNome}</Text>
+                      ) : null}
+                    </View>
+                    {request.status !== 'ENCERRADA' && slot.status === 'RESERVADA' ? (
+                      <View style={styles.visitActions}>
+                        <Pressable
+                          disabled={workingVisitId !== null}
+                          onPress={() => { void respondToVisit(slot, 'confirm'); }}
+                        >
+                          <Text style={styles.action}>
+                            {workingVisitId === slot.id ? 'Confirmando...' : 'Confirmar visita'}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={workingVisitId !== null}
+                          onPress={() => { void respondToVisit(slot, 'cancel'); }}
+                        >
+                          <Text style={styles.dangerAction}>Cancelar visita</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                    {request.status !== 'ENCERRADA' && slot.status === 'CONFIRMADA' ? (
+                      <View style={styles.visitActions}>
+                        <Pressable onPress={() => router.push('/(cliente)/conversas')}>
+                          <Text style={styles.action}>Abrir conversa</Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={workingVisitId !== null}
+                          onPress={() => { void respondToVisit(slot, 'cancel'); }}
+                        >
+                          <Text style={styles.dangerAction}>Cancelar visita</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+            </View>
 
             {request.status !== 'ENCERRADA' ? (
               confirmingId === request.id ? (
@@ -146,6 +229,18 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+function formatVisitTime(slot: VisitSlot) {
+  const [date, time] = slot.inicioLocal.split('T');
+  return `${date} às ${time.slice(0, 5)} (${slot.timeZoneId})`;
+}
+
+function visitStatusLabel(slot: VisitSlot) {
+  if (slot.status === 'DISPONIVEL') return 'Aguardando escolha do prestador';
+  if (slot.status === 'RESERVADA') return 'Aguardando sua confirmação';
+  if (slot.status === 'CONFIRMADA') return 'Confirmada';
+  return slot.status === 'CANCELADA' ? 'Cancelada' : 'Expirada';
+}
+
 function formatAddress(request: ServiceRequest) {
   const address = request.endereco;
   const street = [address.logradouro, address.numero, address.complemento, address.bairro]
@@ -174,4 +269,10 @@ const styles = StyleSheet.create({
   confirmText: { color: '#333' },
   dangerAction: { color: '#a43434', fontWeight: '700', paddingVertical: 4 },
   action: { color: '#555', fontWeight: '600', paddingVertical: 4 },
+  visits: { borderTopColor: '#eee', borderTopWidth: 1, gap: 8, marginTop: 2, paddingTop: 10 },
+  visitHeading: { color: '#333', fontSize: 15, fontWeight: '700' },
+  visitCard: { alignItems: 'flex-start', borderColor: '#e1e1e1', borderRadius: 9, borderWidth: 1,
+    gap: 8, padding: 10 },
+  visitInfo: { gap: 4 },
+  visitActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
 });

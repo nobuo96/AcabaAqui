@@ -55,12 +55,9 @@ public class RequestOpportunityResource {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
         try {
-            RequestOpportunityService.AcceptedConversation conversation = service.aceitar(providerId, opportunityId);
-            return conversation == null ? Response.status(Response.Status.NOT_FOUND).build()
-                    : Response.status(Response.Status.CREATED).entity(new ConversationResponse(
-                            conversation.id(), conversation.servicoNome(), conversation.clienteNome(),
-                            conversation.prestadorNome(), conversation.cidade(), conversation.uf(),
-                            conversation.dataCriacao())).build();
+            RequestOpportunity opportunity = service.aceitar(providerId, opportunityId);
+            return opportunity == null ? Response.status(Response.Status.NOT_FOUND).build()
+                    : Response.noContent().build();
         } catch (IllegalStateException exception) {
             return Response.status(Response.Status.CONFLICT)
                     .entity(new ErrorResponse(exception.getMessage())).build();
@@ -106,8 +103,6 @@ public class RequestOpportunityResource {
     public record OpportunityResponse(Long id, Long solicitacaoId, String servicoNome, BigDecimal areaM2,
                                       String cidade, String uf, String status, boolean lida,
                                       LocalDateTime dataCriacao) { }
-    public record ConversationResponse(Long id, String servicoNome, String clienteNome, String prestadorNome,
-                                       String cidade, String uf, LocalDateTime dataCriacao) { }
     public record ReadResponse(int atualizadas) { }
     public record ErrorResponse(String message) { }
 }
