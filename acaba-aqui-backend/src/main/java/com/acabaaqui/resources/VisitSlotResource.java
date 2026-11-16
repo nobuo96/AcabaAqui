@@ -111,7 +111,7 @@ public class VisitSlotResource {
     }
 
     private VisitSlotResponse toResponse(VisitSlot slot, Integer viewerId, boolean clientRole) {
-        User provider = slot.getPrestador();
+        User provider = slot.getPrestador() != null ? slot.getPrestador() : slot.getPrestadorConfirmado();
         boolean revealProvider = provider != null
                 && (clientRole || provider.getId().equals(viewerId));
         return new VisitSlotResponse(

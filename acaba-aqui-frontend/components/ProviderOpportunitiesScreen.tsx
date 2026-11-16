@@ -1,14 +1,18 @@
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
+import { InAppNotificationInbox } from '@/components/InAppNotificationInbox';
 import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
+import { getAuthUserId } from '@/lib/authToken';
 import {
   communicationApi,
+  serviceQuoteApi,
   visitSlotApi,
   type RequestOpportunity,
+  type ServiceQuote,
   type VisitSlot,
 } from '@/lib/communicationApi';
 
@@ -16,22 +20,42 @@ export function ProviderOpportunitiesScreen() {
   const router = useRouter();
   const [opportunities, setOpportunities] = useState<RequestOpportunity[]>([]);
   const [visitSlotsByRequest, setVisitSlotsByRequest] = useState<Record<number, VisitSlot[]>>({});
+  const [quotesByRequest, setQuotesByRequest] = useState<Record<number, ServiceQuote[]>>({});
+  const [providerId, setProviderId] = useState<number | null>(null);
+  const [quoteDescriptions, setQuoteDescriptions] = useState<Record<number, string>>({});
+  const [quoteAmounts, setQuoteAmounts] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<number | null>(null);
   const [workingSlotId, setWorkingSlotId] = useState<number | null>(null);
+  const [sendingQuoteId, setSendingQuoteId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const items = await communicationApi.listOpportunities();
+      const [items, authenticatedProviderId] = await Promise.all([
+        communicationApi.listOpportunities(),
+        getAuthUserId(),
+      ]);
+      if (!authenticatedProviderId) {
+        throw new Error('Sessão não encontrada. Entre novamente.');
+      }
+      const currentProviderId = Number(authenticatedProviderId);
+      setProviderId(currentProviderId);
       const slotsByRequest: Record<number, VisitSlot[]> = {};
+      const quotesByRequest: Record<number, ServiceQuote[]> = {};
       await Promise.all(items.filter((item) => item.status === 'ACEITA').map(async (item) => {
-        slotsByRequest[item.solicitacaoId] = await visitSlotApi.list(item.solicitacaoId);
+        const [slots, quotes] = await Promise.all([
+          visitSlotApi.list(item.solicitacaoId),
+          serviceQuoteApi.list(item.solicitacaoId),
+        ]);
+        slotsByRequest[item.solicitacaoId] = slots;
+        quotesByRequest[item.solicitacaoId] = quotes;
       }));
       setOpportunities(items);
       setVisitSlotsByRequest(slotsByRequest);
+      setQuotesByRequest(quotesByRequest);
       await communicationApi.markOpportunitiesRead();
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Não foi possível carregar as oportunidades.');
@@ -91,10 +115,38 @@ export function ProviderOpportunitiesScreen() {
     }
   }
 
+  async function sendQuote(item: RequestOpportunity) {
+    if (sendingQuoteId !== null) return;
+    const description = quoteDescriptions[item.solicitacaoId] ?? '';
+    const parsedAmount = Number((quoteAmounts[item.solicitacaoId] ?? '').replace(',', '.'));
+    if (!description.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError('Informe a descrição e um valor total maior que zero.');
+      return;
+    }
+
+    setSendingQuoteId(item.solicitacaoId);
+    setError('');
+    try {
+      await serviceQuoteApi.send(item.solicitacaoId, {
+        descricao: description.trim(),
+        valorTotal: parsedAmount,
+      });
+      setQuoteDescriptions((current) => ({ ...current, [item.solicitacaoId]: '' }));
+      setQuoteAmounts((current) => ({ ...current, [item.solicitacaoId]: '' }));
+      await load();
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : 'Não foi possível enviar o orçamento.');
+      await load();
+    } finally {
+      setSendingQuoteId(null);
+    }
+  }
+
   return (
     <View style={styles.container}>
       <AcabaAquiHeader title="Oportunidades" />
       <ScrollAreaView contentContainerStyle={styles.content}>
+        <InAppNotificationInbox />
         {loading ? <Text style={styles.muted}>Carregando oportunidades...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {!loading && opportunities.length === 0
@@ -125,12 +177,13 @@ export function ProviderOpportunitiesScreen() {
               </View>
             ) : null}
             {item.status === 'ACEITA' ? (
-              <View style={styles.visitSection}>
-                <Text style={styles.visitHeading}>Horários de visita</Text>
-                <Text style={styles.muted}>O chat ficará disponível após o cliente confirmar.</Text>
-                {(visitSlotsByRequest[item.solicitacaoId] ?? []).length === 0
-                  ? <Text style={styles.muted}>O cliente ainda não informou horários disponíveis.</Text>
-                  : (visitSlotsByRequest[item.solicitacaoId] ?? []).map((slot) => (
+              <>
+                <View style={styles.visitSection}>
+                  <Text style={styles.visitHeading}>Horários de visita</Text>
+                  <Text style={styles.muted}>O chat ficará disponível após o cliente confirmar.</Text>
+                  {(visitSlotsByRequest[item.solicitacaoId] ?? []).length === 0
+                    ? <Text style={styles.muted}>O cliente ainda não informou horários disponíveis.</Text>
+                    : (visitSlotsByRequest[item.solicitacaoId] ?? []).map((slot) => (
                     <View key={slot.id} style={styles.slot}>
                       <View style={styles.slotInfo}>
                         <Text style={styles.detail}>{formatVisitTime(slot)}</Text>
@@ -166,8 +219,60 @@ export function ProviderOpportunitiesScreen() {
                           </View>
                         ) : null}
                     </View>
-                  ))}
-              </View>
+                    ))}
+                </View>
+                <View style={styles.quoteSection}>
+                  <Text style={styles.visitHeading}>Orçamentos</Text>
+                  {(quotesByRequest[item.solicitacaoId] ?? []).length === 0
+                    ? <Text style={styles.muted}>Você ainda não enviou um orçamento.</Text>
+                    : (quotesByRequest[item.solicitacaoId] ?? []).map((quote) => (
+                      <View key={quote.id} style={styles.quoteCard}>
+                        <Text style={styles.quotePrice}>{formatCurrency(quote.valorTotal)}</Text>
+                        <Text style={styles.detail}>{quote.descricao}</Text>
+                        <Text style={styles.slotStatus}>{quoteStatusLabel(quote.status)}</Text>
+                        <Text style={styles.date}>Válido até {formatDate(quote.expiraEm)}</Text>
+                      </View>
+                    ))}
+                  {(visitSlotsByRequest[item.solicitacaoId] ?? []).some((slot) =>
+                    slot.status === 'EXPIRADA' && slot.prestadorId === providerId)
+                    && !(quotesByRequest[item.solicitacaoId] ?? []).some((quote) =>
+                      quote.status === 'ENVIADO' || quote.status === 'APROVADO') ? (
+                    <View style={styles.quoteForm}>
+                      <Text style={styles.muted}>A visita terminou. Envie seu orçamento em até 7 dias.</Text>
+                      <TextInput
+                        value={quoteDescriptions[item.solicitacaoId] ?? ''}
+                        onChangeText={(value) => setQuoteDescriptions((current) => ({
+                          ...current,
+                          [item.solicitacaoId]: value,
+                        }))}
+                        multiline
+                        maxLength={2000}
+                        placeholder="Descrição do serviço e materiais"
+                        style={[styles.input, styles.descriptionInput]}
+                      />
+                      <TextInput
+                        value={quoteAmounts[item.solicitacaoId] ?? ''}
+                        onChangeText={(value) => setQuoteAmounts((current) => ({
+                          ...current,
+                          [item.solicitacaoId]: value,
+                        }))}
+                        keyboardType="decimal-pad"
+                        placeholder="Valor total (R$)"
+                        style={styles.input}
+                      />
+                      <Pressable
+                        disabled={sendingQuoteId !== null}
+                        onPress={() => { void sendQuote(item); }}
+                        style={styles.slotButton}
+                      >
+                        <Text style={styles.slotButtonText}>
+                          {sendingQuoteId === item.solicitacaoId ? 'Enviando...' : 'Enviar orçamento'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              </>
             ) : null}
           </View>
         ))}
@@ -201,6 +306,24 @@ function visitStatusLabel(slot: VisitSlot) {
   return slot.status === 'CANCELADA' ? 'Cancelada' : 'Expirada';
 }
 
+function quoteStatusLabel(status: ServiceQuote['status']) {
+  return {
+    ENVIADO: 'Aguardando decisão do cliente',
+    APROVADO: 'Aprovado',
+    RECUSADO: 'Recusado',
+    EXPIRADO: 'Expirado',
+    CANCELADO: 'Cancelado',
+  }[status];
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
 function formatArea(value: number) {
   return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(value);
 }
@@ -225,6 +348,12 @@ const styles = StyleSheet.create({
   muted: { color: '#666', lineHeight: 21 },
   error: { color: '#a43434' },
   visitSection: { borderTopColor: '#eee', borderTopWidth: 1, gap: 9, marginTop: 4, paddingTop: 10 },
+  quoteSection: { borderTopColor: '#eee', borderTopWidth: 1, gap: 9, marginTop: 4, paddingTop: 10 },
+  quoteCard: { backgroundColor: '#fafafa', borderRadius: 9, gap: 5, padding: 10 },
+  quotePrice: { color: '#333', fontSize: 16, fontWeight: '700' },
+  quoteForm: { gap: 9, marginTop: 4 },
+  input: { borderColor: '#ccc', borderRadius: 8, borderWidth: 1, color: '#222', padding: 11 },
+  descriptionInput: { minHeight: 90, textAlignVertical: 'top' },
   visitHeading: { color: '#333', fontSize: 15, fontWeight: '700' },
   slot: { alignItems: 'center', borderColor: '#e1e1e1', borderRadius: 9, borderWidth: 1,
     flexDirection: 'row', gap: 8, justifyContent: 'space-between', padding: 10 },

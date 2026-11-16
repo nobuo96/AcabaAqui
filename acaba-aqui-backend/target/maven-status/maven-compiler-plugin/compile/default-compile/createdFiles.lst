@@ -4,6 +4,7 @@ com\acabaaqui\persistence\InAppNotificationRepository.class
 com\acabaaqui\resources\RequestOpportunityResource.class
 com\acabaaqui\model\RequestOpportunity.class
 com\acabaaqui\resources\ServiceRequestResource.class
+com\acabaaqui\services\ServicePaymentService$PaymentResponse.class
 com\acabaaqui\resources\UserResource.class
 com\acabaaqui\resources\MercadoPagoPaymentResource.class
 com\acabaaqui\services\VisitSlotService.class
@@ -14,6 +15,7 @@ com\acabaaqui\model\VisitSlotStatus.class
 com\acabaaqui\model\User.class
 com\acabaaqui\persistence\ServiceCatalogRepository.class
 com\acabaaqui\resources\RequestOpportunityResource$ErrorResponse.class
+com\acabaaqui\resources\ServicePaymentResource.class
 com\acabaaqui\services\AddressService.class
 com\acabaaqui\services\LifecycleStatusTransitionPolicy.class
 com\acabaaqui\services\ServiceQuoteExpirationJob.class
@@ -28,11 +30,13 @@ com\acabaaqui\resources\ServiceRequestResource$AddressSnapshot.class
 com\acabaaqui\security\JwtAuthenticationFilter.class
 com\acabaaqui\services\SocialAuthService$LoginResult.class
 com\acabaaqui\model\ServiceRequest.class
+com\acabaaqui\services\MercadoPagoOrderGateway$OrderSnapshot.class
 com\acabaaqui\services\ServiceRequestExpirationJob.class
 com\acabaaqui\persistence\ChatMessageRepository.class
 com\acabaaqui\model\Conversation.class
 com\acabaaqui\services\VisitSlotService$AvailabilityRequest.class
 com\acabaaqui\resources\ConversationResource.class
+com\acabaaqui\services\ServicePaymentService.class
 com\acabaaqui\model\ServiceQuoteStatus.class
 com\acabaaqui\persistence\ConversationRepository.class
 com\acabaaqui\resources\AuthResource$LoginRequest.class
@@ -44,11 +48,14 @@ com\acabaaqui\resources\ProviderServicesResource$ServicesResponse.class
 com\acabaaqui\resources\ServiceQuoteResource$QuoteSubmission.class
 com\acabaaqui\services\ServiceQuoteService$QuoteSubmission.class
 com\acabaaqui\resources\ProviderCoverageResource$CoverageResponse.class
+com\acabaaqui\model\PaymentStatus.class
 com\acabaaqui\model\ChatMessage.class
 com\acabaaqui\services\AuthService.class
+com\acabaaqui\services\PaymentOrderSyncJob.class
 com\acabaaqui\resources\ViaCepResource.class
 com\acabaaqui\model\PasswordResetChallenge.class
 com\acabaaqui\resources\VisitSlotResource$VisitConfirmationResponse.class
+com\acabaaqui\model\ServicePayment.class
 com\acabaaqui\services\ViaCepService$CepResponse.class
 com\acabaaqui\resources\ServiceRequestResource$CreateRequest.class
 com\acabaaqui\services\SocialProviderVerificationService.class
@@ -80,6 +87,7 @@ com\acabaaqui\services\SocialAuthService.class
 com\acabaaqui\services\VisitSlotService$ConfirmationResult.class
 com\acabaaqui\model\UserCredential.class
 com\acabaaqui\resources\InAppNotificationResource$NotificationResponse.class
+com\acabaaqui\resources\ServicePaymentResource$ErrorResponse.class
 com\acabaaqui\services\ServiceCatalogService.class
 com\acabaaqui\resources\VisitSlotResource$VisitSlotResponse.class
 com\acabaaqui\model\Address.class
@@ -89,6 +97,7 @@ com\acabaaqui\services\MercadoPagoOrderGateway$CheckoutOrder.class
 com\acabaaqui\resources\ConversationResource$SendMessage.class
 com\acabaaqui\persistence\RequestOpportunityRepository.class
 com\acabaaqui\resources\AddressResource.class
+com\acabaaqui\model\ServicePaymentOrderAttempt.class
 com\acabaaqui\persistence\ServiceQuoteRepository.class
 com\acabaaqui\resources\ServiceQuoteResource.class
 com\acabaaqui\persistence\ServiceQuoteRepository$ExpirationCandidate.class
@@ -96,12 +105,14 @@ com\acabaaqui\services\EmailVerificationService.class
 com\acabaaqui\resources\ServiceCatalogResource$CategoryRequest.class
 com\acabaaqui\resources\ServiceQuoteResource$QuoteResponse.class
 com\acabaaqui\services\SocialProviderVerificationService$VerifiedIdentity.class
+com\acabaaqui\services\MercadoPagoOrderGateway$ReturnUrls.class
 com\acabaaqui\model\SocialAuthProvider.class
 com\acabaaqui\persistence\SocialIdentityRepository.class
 com\acabaaqui\resources\ServiceCatalogResource$CategoryResponse.class
 com\acabaaqui\resources\ProviderCoverageResource$ErrorResponse.class
 com\acabaaqui\resources\UserResource$UpdatePersonalInfoRequest.class
 com\acabaaqui\services\MercadoPagoPaymentService.class
+com\acabaaqui\persistence\ServicePaymentRepository.class
 com\acabaaqui\resources\ServiceQuoteResource$ErrorResponse.class
 com\acabaaqui\resources\VisitSlotResource.class
 com\acabaaqui\services\ProviderCoverageService$CoverageRequest.class
@@ -120,6 +131,7 @@ com\acabaaqui\security\JwtAuthenticationFilter$AuthenticatedSecurityContext.clas
 com\acabaaqui\services\ViaCepService.class
 com\acabaaqui\resources\AuthResource$RegistrationRequest.class
 com\acabaaqui\services\MercadoPagoPaymentService$ConnectionCheck.class
+com\acabaaqui\services\MercadoPagoWebhookSignatureVerifier.class
 com\acabaaqui\model\LifecycleStatusHistory.class
 com\acabaaqui\resources\AuthResource$ChangePasswordRequest.class
 com\acabaaqui\services\ConversationService.class
@@ -140,8 +152,11 @@ com\acabaaqui\services\ServiceRequestClosureService.class
 com\acabaaqui\model\PendingEmailRegistration.class
 com\acabaaqui\resources\AuthResource$SocialLoginRequest.class
 com\acabaaqui\model\ServiceCategory.class
+com\acabaaqui\services\ServicePaymentService$1.class
+com\acabaaqui\persistence\ServicePaymentOrderAttemptRepository.class
 com\acabaaqui\services\ProviderCoverageService.class
 com\acabaaqui\persistence\AddressRepository.class
+com\acabaaqui\services\ServicePaymentService$PaymentLookup.class
 com\acabaaqui\resources\AddressResource$AddressResponse.class
 com\acabaaqui\persistence\UserRepository.class
 com\acabaaqui\services\MercadoPagoOrdersHttpGateway.class

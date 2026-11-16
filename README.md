@@ -36,7 +36,7 @@ FLUSH PRIVILEGES;
 
 ## Configuração do Backend
 
-As alterações do banco são aplicadas por migrations SQL incrementais em `acaba-aqui-backend/src/main/resources/db/migration`; o Hibernate não cria/atualiza o schema automaticamente. Aplique manualmente `v4_lifecycle_status_history.sql` após `v1`–`v3`, depois `v5_visit_scheduling.sql` e `v6_service_quotes_and_notifications.sql`. Se o banco já tem a v5 aplicada, execute somente a v6. A v6 cria orçamentos e notificações internas e ajusta a preservação do prestador em visitas concluídas.
+As alterações do banco são aplicadas por migrations SQL incrementais em `acaba-aqui-backend/src/main/resources/db/migration`; o Hibernate não cria/atualiza o schema automaticamente. Aplique manualmente `v4_lifecycle_status_history.sql` após `v1`–`v3`, depois `v5_visit_scheduling.sql`, `v6_service_quotes_and_notifications.sql` e `v7_payment_orders.sql`. Se o banco já tem a v6 aplicada, execute somente a v7 antes de iniciar o backend.
 
 ### Variáveis obrigatórias
 
@@ -123,7 +123,28 @@ $order
 
 Abra `checkoutUrl` para verificar o redirecionamento. Use somente credenciais de teste. O JWT é impresso localmente para facilitar inspeção, mas não o compartilhe nem o grave em arquivo. Cada nova Order deve usar uma chave de idempotência própria; reutilize a mesma chave apenas ao repetir a mesma tentativa.
 
-Esta etapa ainda não persiste pedidos nem implementa URLs de retorno do app, webhooks, confirmação do pagamento, cancelamento ou reembolso. Não use o endpoint de teste como fluxo de cobrança em produção. Mantenha o Access Token somente no ambiente/backend; não o coloque no app frontend nem no controle de versão.
+O endpoint de sandbox acima continua separado do fluxo real de cobrança. Para o fluxo integrado, aplique `v7_payment_orders.sql` e configure também o segredo de webhook somente no ambiente do backend:
+
+```PowerShell
+$env:MERCADOPAGO_WEBHOOK_SECRET="SEGREDO_DE_ASSINATURA_DO_WEBHOOK"
+# Opcional: este é o deep link configurado em app.json.
+$env:MERCADOPAGO_PAYMENT_RETURN_URL="acabaaquifrontend://payment-return"
+```
+
+No painel de integrações do Mercado Pago, configure as notificações de Orders para uma URL pública HTTPS que aponte para `/payments/webhook`. Para testar localmente, use um túnel HTTPS e encaminhe a URL até a porta do backend; `localhost` não é acessível pelos servidores do Mercado Pago. O segredo deve ser o segredo de assinatura fornecido para essa integração. O endpoint do webhook é público, mas valida `x-signature` antes de processar qualquer notificação.
+
+Após aprovar um orçamento, o cliente usa **Pagar orçamento** na tela de solicitações. O backend cria e persiste uma Order idempotente, vinculada ao orçamento, e o app abre `checkoutUrl`. O retorno usa o deep link configurado, mas não confirma pagamento: a tela consulta o estado local, atualizado após consulta autenticada da Order ao Mercado Pago. Webhooks repetidos consultam o estado atual do Mercado Pago e não repetem transições; pagamentos pendentes também são reconciliados a cada 15 minutos. Pagamentos recusados, expirados ou cancelados podem ser tentados novamente.
+
+`MERCADOPAGO_PAYMENT_RETURN_URL` deve ser ajustada se o esquema/rota do app mudar. Para builds web, configure uma URL HTTPS de retorno compatível com o domínio publicado. O Access Token continua somente no backend. O endpoint administrativo de reembolso integral `POST /payments/{paymentId}/refund` e o cancelamento de Order pendente `POST /payments/{paymentId}/cancel` dependem das permissões da credencial no Mercado Pago; a automação de cancelamento do serviço após pagamento é uma etapa posterior.
+
+Rotas do fluxo integrado:
+
+- `POST /payments/quotes/{quoteId}/checkout`: inicia ou retoma o checkout do orçamento aprovado do cliente autenticado.
+- `GET /payments/quotes/{quoteId}` e `GET /payments/{paymentId}`: consultam o status visível ao cliente.
+- `POST /payments/{paymentId}/sync`: consulta a Order diretamente no Mercado Pago antes de atualizar o status local.
+- `POST /payments/{paymentId}/cancel`: cancela uma Order ainda não paga; após o pagamento, a API rejeita o cancelamento.
+- `POST /payments/{paymentId}/refund`: reembolso integral administrativo, restrito a administradores.
+- `POST /payments/webhook`: callback público, protegido pela assinatura do Mercado Pago.
 
 ### Configuração de e-mail
 
@@ -182,6 +203,7 @@ v3_provider_services_and_regions.sql
 v4_lifecycle_status_history.sql
 v5_visit_scheduling.sql
 v6_service_quotes_and_notifications.sql
+v7_payment_orders.sql
 ```
 
 Execute apenas as migrations ainda não aplicadas, sempre em ordem, antes de iniciar a aplicação.
@@ -529,7 +551,7 @@ POST /provider/opportunities/{opportunityId}/accept
 POST /provider/opportunities/{opportunityId}/decline
 ```
 
-Após o horário de uma visita confirmada, o prestador pode enviar um orçamento com descrição e valor total. O cliente lista os orçamentos da solicitação e pode aprovar um ou recusar cada um. Cada orçamento enviado vence em 7 dias corridos; a aprovação cancela os demais orçamentos e os horários restantes.
+Após o horário de uma visita confirmada, o prestador pode enviar um orçamento com descrição e valor total pela tela de oportunidades. O cliente compara os orçamentos na lista de solicitações e pode aprovar um ou recusar cada um. Cada orçamento enviado vence em 7 dias corridos; a aprovação cancela os demais orçamentos e os horários restantes. O feed de notificações aparece nas telas de oportunidades e solicitações.
 
 ```HTTP
 POST /service-quotes/requests/{requestId}

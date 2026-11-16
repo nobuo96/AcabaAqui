@@ -56,7 +56,8 @@ public class JwtAuthenticationFilter implements ContainerRequestFilter {
                 || "auth/email-verification/confirm".equals(path)
                 || "auth/password-reset/request".equals(path)
                 || "auth/password-reset/resend".equals(path)
-                || "auth/password-reset/confirm".equals(path);
+                || "auth/password-reset/confirm".equals(path)
+                || "payments/webhook".equals(path);
     }
 
     private void abortUnauthorized(ContainerRequestContext requestContext) {

@@ -5,6 +5,7 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\InAppNotification.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\LifecycleStatusHistory.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\PasswordResetChallenge.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\PaymentStatus.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\PendingEmailRegistration.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\PerfilUser.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ProviderRegion.java
@@ -13,6 +14,8 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\RequestOpportunityStatus.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceCatalogItem.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceCategory.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServicePayment.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServicePaymentOrderAttempt.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceQuote.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceQuoteStatus.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceRequest.java
@@ -35,6 +38,8 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persi
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\RequestOpportunityRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServiceCatalogRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServiceCategoryRepository.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServicePaymentOrderAttemptRepository.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServicePaymentRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServiceQuoteRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServiceRequestRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\SocialIdentityRepository.java
@@ -50,6 +55,7 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resou
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ProviderServicesResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\RequestOpportunityResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ServiceCatalogResource.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ServicePaymentResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ServiceQuoteResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ServiceRequestResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\UserResource.java
@@ -67,12 +73,15 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\servi
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\MercadoPagoOrderGateway.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\MercadoPagoOrdersHttpGateway.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\MercadoPagoPaymentService.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\MercadoPagoWebhookSignatureVerifier.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\PasswordHasher.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\PasswordResetService.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\PaymentOrderSyncJob.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ProviderCoverageService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ProviderServicesService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\RequestOpportunityService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceCatalogService.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServicePaymentService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceQuoteExpirationJob.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceQuoteService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceRequestClosureService.java

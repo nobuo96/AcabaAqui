@@ -160,5 +160,31 @@ class MercadoPagoPaymentServiceTest {
                     "test-order-id",
                     "https://www.mercadopago.com.br/checkout/test");
         }
+
+        @Override
+        public CheckoutOrder criarPedido(
+                String accessToken,
+                UUID idempotencyKey,
+                String externalReference,
+                String description,
+                BigDecimal amount,
+                ReturnUrls returnUrls) {
+            return criarPedido(accessToken, idempotencyKey, description, amount);
+        }
+
+        @Override
+        public OrderSnapshot consultarPedido(String accessToken, String orderId) {
+            return new OrderSnapshot(orderId, "external-reference", "created", "created", BigDecimal.ZERO);
+        }
+
+        @Override
+        public OrderSnapshot cancelarPedido(String accessToken, String orderId, UUID idempotencyKey) {
+            return new OrderSnapshot(orderId, "external-reference", "canceled", "canceled", BigDecimal.ZERO);
+        }
+
+        @Override
+        public OrderSnapshot reembolsarPedido(String accessToken, String orderId, UUID idempotencyKey) {
+            return new OrderSnapshot(orderId, "external-reference", "refunded", "refunded", BigDecimal.ZERO);
+        }
     }
 }

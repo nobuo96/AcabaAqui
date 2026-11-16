@@ -33,6 +33,7 @@ com\acabaaqui\services\ServiceQuoteServiceTest$FakeQuoteRepository.class
 com\acabaaqui\services\ServiceQuoteServiceTest$FakeUserRepository.class
 com\acabaaqui\services\MercadoPagoPaymentServiceTest.class
 com\acabaaqui\services\ServiceQuoteServiceTest$RecordedTransition.class
+com\acabaaqui\services\MercadoPagoWebhookSignatureVerifierTest.class
 com\acabaaqui\services\VisitSlotServiceTest$RecordedTransition.class
 com\acabaaqui\services\AuthServiceTokenVersionTest$2.class
 com\acabaaqui\services\ServiceRequestServiceTest$2.class

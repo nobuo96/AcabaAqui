@@ -1,0 +1,13 @@
+package com.acabaaqui.model;
+
+public enum PaymentStatus {
+    AGUARDANDO_PAGAMENTO,
+    PAGO,
+    RECUSADO,
+    EXPIRADO,
+    CANCELADO,
+    REEMBOLSO_PENDENTE,
+    REEMBOLSADO,
+    REEMBOLSADO_PARCIAL,
+    CONTESTADO
+}

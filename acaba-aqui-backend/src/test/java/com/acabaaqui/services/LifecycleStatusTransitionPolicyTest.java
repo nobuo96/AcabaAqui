@@ -1,12 +1,15 @@
 package com.acabaaqui.services;
 
 import com.acabaaqui.model.RequestOpportunityStatus;
+import com.acabaaqui.model.PaymentStatus;
 import com.acabaaqui.model.ServiceRequestStatus;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifecycleStatusTransitionPolicyTest {
 
@@ -72,6 +75,16 @@ class LifecycleStatusTransitionPolicyTest {
                 "PAGO",
                 LifecycleStatusTransitionPolicy.MERCADO_PAGO));
         assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
+                LifecycleStatusTransitionPolicy.PAGAMENTO,
+                "PAGO",
+                "CONTESTADO",
+                LifecycleStatusTransitionPolicy.MERCADO_PAGO));
+        assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
+                LifecycleStatusTransitionPolicy.PAGAMENTO,
+                "REEMBOLSO_PENDENTE",
+                "REEMBOLSADO",
+                LifecycleStatusTransitionPolicy.MERCADO_PAGO));
+        assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
                 LifecycleStatusTransitionPolicy.EXECUCAO,
                 "EM_ANDAMENTO",
                 "CONCLUIDA_PELO_PRESTADOR",
@@ -86,5 +99,35 @@ class LifecycleStatusTransitionPolicyTest {
                 "ACIONADA",
                 "REEMBOLSO_PENDENTE",
                 LifecycleStatusTransitionPolicy.SISTEMA));
+    }
+
+    @Test
+    void allowsCustomerRetryAfterTerminalCheckoutAndPreventsPaymentStatusRegression() {
+        assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
+                LifecycleStatusTransitionPolicy.PAGAMENTO,
+                PaymentStatus.RECUSADO.name(),
+                PaymentStatus.AGUARDANDO_PAGAMENTO.name(),
+                LifecycleStatusTransitionPolicy.CLIENTE));
+        assertThrows(IllegalStateException.class, () -> LifecycleStatusTransitionPolicy.validar(
+                LifecycleStatusTransitionPolicy.PAGAMENTO,
+                PaymentStatus.RECUSADO.name(),
+                PaymentStatus.AGUARDANDO_PAGAMENTO.name(),
+                LifecycleStatusTransitionPolicy.MERCADO_PAGO));
+
+        assertTrue(ServicePaymentService.podeTransicionar(
+                PaymentStatus.AGUARDANDO_PAGAMENTO, PaymentStatus.PAGO));
+        assertFalse(ServicePaymentService.podeTransicionar(
+                PaymentStatus.PAGO, PaymentStatus.AGUARDANDO_PAGAMENTO));
+        assertFalse(ServicePaymentService.podeTransicionar(
+                PaymentStatus.REEMBOLSADO, PaymentStatus.PAGO));
+        assertEquals(PaymentStatus.EXPIRADO, ServicePaymentService.mapStatus(
+                new MercadoPagoOrderGateway.OrderSnapshot(
+                        "order-id", "reference", "failed", "expired", null)));
+        assertEquals(PaymentStatus.CONTESTADO, ServicePaymentService.mapStatus(
+                new MercadoPagoOrderGateway.OrderSnapshot(
+                        "order-id", "reference", "charged_back", "in_process", null)));
+        assertEquals(PaymentStatus.REEMBOLSADO_PARCIAL, ServicePaymentService.mapStatus(
+                new MercadoPagoOrderGateway.OrderSnapshot(
+                        "order-id", "reference", "processed", "partially_refunded", null)));
     }
 }

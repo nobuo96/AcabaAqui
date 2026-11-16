@@ -4,11 +4,20 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { AcabaAquiButton } from '@/components/AcabaAquiButton';
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
+import { InAppNotificationInbox } from '@/components/InAppNotificationInbox';
 import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
 import { getAuthUserId } from '@/lib/authToken';
 import { serviceRequestApi, type ServiceRequest } from '@/lib/serviceRequestApi';
-import { visitSlotApi, type VisitSlot } from '@/lib/communicationApi';
+import {
+  servicePaymentApi,
+  serviceQuoteApi,
+  visitSlotApi,
+  type ServicePayment,
+  type ServiceQuote,
+  type VisitSlot,
+} from '@/lib/communicationApi';
+import * as WebBrowser from 'expo-web-browser';
 
 type Filter = 'todas' | 'abertas';
 
@@ -16,12 +25,17 @@ export default function SolicitacoesScreen() {
   const router = useRouter();
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [visitSlotsByRequest, setVisitSlotsByRequest] = useState<Record<number, VisitSlot[]>>({});
+  const [quotesByRequest, setQuotesByRequest] = useState<Record<number, ServiceQuote[]>>({});
+  const [paymentsByQuote, setPaymentsByQuote] = useState<Record<number, ServicePayment>>({});
   const [filter, setFilter] = useState<Filter>('todas');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [workingVisitId, setWorkingVisitId] = useState<number | null>(null);
+  const [workingQuoteId, setWorkingQuoteId] = useState<number | null>(null);
+  const [workingPaymentQuoteId, setWorkingPaymentQuoteId] = useState<number | null>(null);
+  const [confirmingPaymentQuoteId, setConfirmingPaymentQuoteId] = useState<number | null>(null);
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -33,11 +47,28 @@ export default function SolicitacoesScreen() {
       }
       const items = await serviceRequestApi.list(userId);
       const slotsByRequest: Record<number, VisitSlot[]> = {};
+      const quotesByRequest: Record<number, ServiceQuote[]> = {};
+      const paymentsByQuote: Record<number, ServicePayment> = {};
       await Promise.all(items.map(async (request) => {
-        slotsByRequest[request.id] = await visitSlotApi.list(request.id);
+        const [slots, quotes] = await Promise.all([
+          visitSlotApi.list(request.id),
+          serviceQuoteApi.list(request.id),
+        ]);
+        await Promise.all(quotes
+          .filter((quote) => quote.status === 'APROVADO')
+          .map(async (quote) => {
+            const lookup = await servicePaymentApi.getForQuote(quote.id);
+            if (lookup.payment) {
+              paymentsByQuote[quote.id] = lookup.payment;
+            }
+          }));
+        slotsByRequest[request.id] = slots;
+        quotesByRequest[request.id] = quotes;
       }));
       setRequests(items);
       setVisitSlotsByRequest(slotsByRequest);
+      setQuotesByRequest(quotesByRequest);
+      setPaymentsByQuote(paymentsByQuote);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Não foi possível carregar as solicitações.');
     } finally {
@@ -67,6 +98,47 @@ export default function SolicitacoesScreen() {
     }
   }
 
+  async function payQuote(quoteId: number) {
+    if (workingPaymentQuoteId !== null) return;
+    setWorkingPaymentQuoteId(quoteId);
+    setError('');
+    try {
+      const payment = await servicePaymentApi.startCheckout(quoteId);
+      setPaymentsByQuote((current) => ({ ...current, [quoteId]: payment }));
+      if (payment.status === 'AGUARDANDO_PAGAMENTO' && payment.checkoutUrl) {
+        await WebBrowser.openBrowserAsync(payment.checkoutUrl);
+      }
+      const lookup = await servicePaymentApi.getForQuote(quoteId);
+      setPaymentsByQuote((current) => lookup.payment
+        ? { ...current, [quoteId]: lookup.payment }
+        : current);
+    } catch (paymentError) {
+      setError(paymentError instanceof Error ? paymentError.message : 'Não foi possível iniciar o pagamento.');
+    } finally {
+      setWorkingPaymentQuoteId(null);
+    }
+  }
+
+  async function cancelPayment(quoteId: number) {
+    const payment = paymentsByQuote[quoteId];
+    if (!payment || workingPaymentQuoteId !== null) return;
+    setWorkingPaymentQuoteId(quoteId);
+    setError('');
+    try {
+      const updatedPayment = await servicePaymentApi.cancel(payment.id);
+      setPaymentsByQuote((current) => ({ ...current, [quoteId]: updatedPayment }));
+      setConfirmingPaymentQuoteId(null);
+    } catch (paymentError) {
+      const message = paymentError instanceof Error
+        ? paymentError.message
+        : 'Não foi possível cancelar o checkout.';
+      await loadRequests();
+      setError(message);
+    } finally {
+      setWorkingPaymentQuoteId(null);
+    }
+  }
+
   async function respondToVisit(slot: VisitSlot, action: 'confirm' | 'cancel') {
     if (workingVisitId !== null) {
       return;
@@ -93,6 +165,25 @@ export default function SolicitacoesScreen() {
     }
   }
 
+  async function decideQuote(quoteId: number, action: 'approve' | 'reject') {
+    if (workingQuoteId !== null) return;
+    setWorkingQuoteId(quoteId);
+    setError('');
+    try {
+      if (action === 'approve') {
+        await serviceQuoteApi.approve(quoteId);
+      } else {
+        await serviceQuoteApi.reject(quoteId);
+      }
+      await loadRequests();
+    } catch (decisionError) {
+      setError(decisionError instanceof Error ? decisionError.message : 'Não foi possível atualizar o orçamento.');
+      await loadRequests();
+    } finally {
+      setWorkingQuoteId(null);
+    }
+  }
+
   const visibleRequests = filter === 'abertas'
     ? requests.filter((request) => request.status !== 'ENCERRADA')
     : requests;
@@ -101,6 +192,7 @@ export default function SolicitacoesScreen() {
     <View style={styles.container}>
       <AcabaAquiHeader title="Minhas solicitações" />
       <ScrollAreaView contentContainerStyle={styles.content}>
+        <InAppNotificationInbox />
         <AcabaAquiButton
           text="Nova solicitação"
           onPress={() => router.push('/cliente/novaSolicitacao')}
@@ -180,6 +272,115 @@ export default function SolicitacoesScreen() {
                 ))}
             </View>
 
+            <View style={styles.quotes}>
+              <Text style={styles.visitHeading}>Orçamentos recebidos</Text>
+              {(quotesByRequest[request.id] ?? []).length === 0
+                ? <Text style={styles.muted}>Você ainda não recebeu orçamentos.</Text>
+                : (quotesByRequest[request.id] ?? []).map((quote) => (
+                  <View key={quote.id} style={styles.quoteCard}>
+                    <View style={styles.quoteHeading}>
+                      <Text style={styles.cardTitle}>{quote.prestadorNome}</Text>
+                      <Text style={[styles.status, quote.status !== 'ENVIADO' && styles.closedStatus]}>
+                        {quoteStatusLabel(quote.status)}
+                      </Text>
+                    </View>
+                    <Text style={styles.quotePrice}>{formatCurrency(quote.valorTotal)}</Text>
+                    <Text style={styles.detail}>{quote.descricao}</Text>
+                    <Text style={styles.date}>Enviado em {formatDate(quote.dataCriacao)}</Text>
+                    {quote.status === 'ENVIADO' ? (
+                      <>
+                        <Text style={styles.date}>Válido até {formatDate(quote.expiraEm)}</Text>
+                        {request.status !== 'ENCERRADA' ? (
+                          <View style={styles.quoteActions}>
+                            <Pressable
+                              disabled={workingQuoteId !== null}
+                              onPress={() => { void decideQuote(quote.id, 'approve'); }}
+                              style={[styles.quoteButton, styles.approveButton]}
+                            >
+                              <Text style={styles.approveText}>
+                                {workingQuoteId === quote.id ? 'Aguarde...' : 'Aprovar orçamento'}
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              disabled={workingQuoteId !== null}
+                              onPress={() => { void decideQuote(quote.id, 'reject'); }}
+                              style={[styles.quoteButton, styles.rejectButton]}
+                            >
+                              <Text style={styles.rejectText}>
+                                {workingQuoteId === quote.id ? 'Aguarde...' : 'Recusar'}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                      </>
+                    ) : null}
+                    {quote.status === 'APROVADO' ? (
+                      <View style={styles.paymentInfo}>
+                        {paymentsByQuote[quote.id] ? (
+                          <>
+                            <Text style={styles.muted}>
+                              Pagamento: {paymentStatusLabel(paymentsByQuote[quote.id].status)}
+                            </Text>
+                            {paymentsByQuote[quote.id].status === 'AGUARDANDO_PAGAMENTO'
+                              && paymentsByQuote[quote.id].checkoutUrl ? (
+                              <>
+                                <Pressable
+                                  disabled={workingPaymentQuoteId !== null}
+                                  onPress={() => { void payQuote(quote.id); }}
+                                >
+                                  <Text style={styles.action}>Retomar pagamento</Text>
+                                </Pressable>
+                                {confirmingPaymentQuoteId === quote.id ? (
+                                  <View style={styles.paymentConfirmation}>
+                                    <Text style={styles.muted}>Cancelar apenas esta tentativa de pagamento?</Text>
+                                    <Pressable
+                                      disabled={workingPaymentQuoteId !== null}
+                                      onPress={() => { void cancelPayment(quote.id); }}
+                                    >
+                                      <Text style={styles.dangerAction}>
+                                        {workingPaymentQuoteId === quote.id ? 'Cancelando...' : 'Confirmar cancelamento'}
+                                      </Text>
+                                    </Pressable>
+                                    <Pressable onPress={() => setConfirmingPaymentQuoteId(null)}>
+                                      <Text style={styles.action}>Manter pagamento</Text>
+                                    </Pressable>
+                                  </View>
+                                ) : (
+                                  <Pressable onPress={() => setConfirmingPaymentQuoteId(quote.id)}>
+                                    <Text style={styles.dangerAction}>Cancelar checkout</Text>
+                                  </Pressable>
+                                )}
+                              </>
+                            ) : null}
+                            {['RECUSADO', 'EXPIRADO', 'CANCELADO'].includes(paymentsByQuote[quote.id].status) ? (
+                              <Pressable
+                                disabled={workingPaymentQuoteId !== null}
+                                onPress={() => { void payQuote(quote.id); }}
+                                style={[styles.quoteButton, styles.approveButton]}
+                              >
+                                <Text style={styles.approveText}>
+                                  {workingPaymentQuoteId === quote.id ? 'Preparando pagamento...' : 'Tentar novamente'}
+                                </Text>
+                              </Pressable>
+                            ) : null}
+                          </>
+                        ) : (
+                          <Pressable
+                            disabled={workingPaymentQuoteId !== null}
+                            onPress={() => { void payQuote(quote.id); }}
+                            style={[styles.quoteButton, styles.approveButton]}
+                          >
+                            <Text style={styles.approveText}>
+                              {workingPaymentQuoteId === quote.id ? 'Preparando pagamento...' : 'Pagar orçamento'}
+                            </Text>
+                          </Pressable>
+                        )}
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+            </View>
+
             {request.status !== 'ENCERRADA' ? (
               confirmingId === request.id ? (
                 <View style={styles.confirmation}>
@@ -241,6 +442,34 @@ function visitStatusLabel(slot: VisitSlot) {
   return slot.status === 'CANCELADA' ? 'Cancelada' : 'Expirada';
 }
 
+function quoteStatusLabel(status: ServiceQuote['status']) {
+  return {
+    ENVIADO: 'Aguardando decisão',
+    APROVADO: 'Aprovado',
+    RECUSADO: 'Recusado',
+    EXPIRADO: 'Expirado',
+    CANCELADO: 'Cancelado',
+  }[status];
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
+
+function paymentStatusLabel(status: ServicePayment['status']) {
+  return {
+    AGUARDANDO_PAGAMENTO: 'Aguardando pagamento',
+    PAGO: 'Confirmado',
+    RECUSADO: 'Não aprovado',
+    EXPIRADO: 'Expirado',
+    CANCELADO: 'Cancelado',
+    REEMBOLSO_PENDENTE: 'Reembolso em processamento',
+    REEMBOLSADO: 'Reembolsado',
+    REEMBOLSADO_PARCIAL: 'Reembolso parcial',
+    CONTESTADO: 'Em contestação',
+  }[status];
+}
+
 function formatAddress(request: ServiceRequest) {
   const address = request.endereco;
   const street = [address.logradouro, address.numero, address.complemento, address.bairro]
@@ -270,6 +499,18 @@ const styles = StyleSheet.create({
   dangerAction: { color: '#a43434', fontWeight: '700', paddingVertical: 4 },
   action: { color: '#555', fontWeight: '600', paddingVertical: 4 },
   visits: { borderTopColor: '#eee', borderTopWidth: 1, gap: 8, marginTop: 2, paddingTop: 10 },
+  quotes: { borderTopColor: '#eee', borderTopWidth: 1, gap: 8, marginTop: 2, paddingTop: 10 },
+  quoteCard: { backgroundColor: '#fafafa', borderRadius: 9, gap: 7, padding: 11 },
+  quoteHeading: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
+  quotePrice: { color: '#333', fontSize: 17, fontWeight: '700' },
+  quoteActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  paymentInfo: { borderTopColor: '#eee', borderTopWidth: 1, gap: 6, marginTop: 4, paddingTop: 8 },
+  paymentConfirmation: { borderTopColor: '#eee', borderTopWidth: 1, gap: 4, paddingTop: 6 },
+  quoteButton: { alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
+  approveButton: { backgroundColor: '#a43434' },
+  rejectButton: { borderColor: '#a43434', borderWidth: 1 },
+  approveText: { color: '#fff', fontWeight: '700' },
+  rejectText: { color: '#a43434', fontWeight: '700' },
   visitHeading: { color: '#333', fontSize: 15, fontWeight: '700' },
   visitCard: { alignItems: 'flex-start', borderColor: '#e1e1e1', borderRadius: 9, borderWidth: 1,
     gap: 8, padding: 10 },

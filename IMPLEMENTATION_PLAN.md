@@ -134,7 +134,7 @@ As partes abaixo são entregas verticais pequenas, cada uma com escopo limitado 
 
 **Depende de:** Parte 1.
 
-- **Status:** implementada no backend. A migration incremental `v5_visit_scheduling.sql` está pendente de aplicação manual; não altere as migrations v1–v4 já aplicadas.
+- **Status:** implementada no backend; migration v5 aplicada pelo usuário. Não altere migrations já aplicadas.
 - Persistem-se blocos de uma hora em horário local, com `timeZoneId` IANA. A criação aceita `horariosDisponiveis` opcional para manter compatibilidade com clientes existentes; blocos devem ser futuros, começar na hora cheia, não se repetir e ter horários locais inequívocos.
 - Endpoints autenticados: `GET /visit-slots/requests/{requestId}`, `POST /visit-slots/{slotId}/reserve`, `POST /visit-slots/{slotId}/confirm` e `POST /visit-slots/{slotId}/cancel`.
 - Somente prestadores com oportunidade aceita reservam; cada prestador tem uma reserva ativa por solicitação. Cliente confirma. Cliente ou prestador da reserva podem cancelar; antes do início o bloco volta a ficar disponível.
@@ -170,43 +170,49 @@ As partes abaixo são entregas verticais pequenas, cada uma com escopo limitado 
 
 **Depende de:** Partes 2 e 0.
 
-- **Status:** implementada no backend. A migration `v6_service_quotes_and_notifications.sql` precisa ser aplicada manualmente após a v5; não altere migrations já aplicadas.
+- **Status:** implementada no backend; migration v6 aplicada pelo usuário. Não altere migrations já aplicadas.
 - O orçamento contém descrição e valor total em reais, com validade de 7 dias corridos. O prestador pode enviar um orçamento por solicitação após o horário de uma visita confirmada ter terminado.
 - O cliente dono da solicitação lista todos os orçamentos e pode aprovar um ou recusar cada um. O prestador só consulta o próprio orçamento; a aprovação é serializada pelo bloqueio da solicitação e não permite dois aprovados.
 - Aprovar um orçamento cancela os demais orçamentos enviados e os horários ainda ativos. Encerrar a solicitação cancela orçamentos enviados ou aprovados.
 - Notificações internas persistidas informam envio, decisão, cancelamento e expiração; `GET /notifications` lista as do usuário e `PUT /notifications/{notificationId}/read` marca uma como lida.
 - Orçamentos vencidos são expirados automaticamente a cada 15 minutos e também ao listar ou decidir, para respeitar o prazo mesmo antes da próxima execução da tarefa.
 
-**Teste/aceite:** testes verificam acesso somente aos participantes, envio após visita, prazo e expiração, estados de recusa/aprovação, notificações e cancelamentos em cascata; não é possível aprovar dois orçamentos para a mesma solicitação. A aplicação manual da migration v6 permanece pendente.
+**Teste/aceite:** testes verificam acesso somente aos participantes, envio após visita, prazo e expiração, estados de recusa/aprovação, notificações e cancelamentos em cascata; não é possível aprovar dois orçamentos para a mesma solicitação. Migration v6 aplicada pelo usuário.
 
 ### Parte 6 — Orçamentos (frontend)
 
 **Depende de:** Parte 5.
 
-- Criar telas de envio para prestador e de comparação/decisão para cliente, usando os campos de orçamento aprovados na Parte 0.
-- Exibir estados recusado, aprovado e cancelado e atualizar os participantes sobre a decisão.
+- **Status:** implementada na tela de oportunidades do prestador e na lista de solicitações do cliente; validação manual ponta a ponta pendente.
+- Prestador vê e envia descrição/valor após uma visita concluída, acompanha seu próprio estado e prazo de validade.
+- Cliente compara todos os orçamentos, aprova um ou recusa cada orçamento enviado; as telas atualizam depois da decisão e exibem os estados recusado, aprovado, cancelado e expirado.
+- Cliente e prestador veem o feed de notificações internas e podem marcar avisos como lidos.
 
-**Teste/aceite:** roteiro de ponta a ponta cria dois orçamentos, recusa um e aprova o outro; os estados e cancelamentos aparecem para cliente e prestadores corretos.
+**Teste/aceite:** `tsc --noEmit` e `mvn -o package` passam. Falta o roteiro manual: concluir visitas de dois prestadores, enviar os dois orçamentos, recusar um e aprovar o outro; verificar estados, cancelamento e notificações em ambas as contas.
 
 ### Parte 7 — Cobrança e confirmação Mercado Pago
 
 **Depende de:** Partes 5 e 0.
 
-**Status:** implementado parcialmente como prova de integração no sandbox. O endpoint administrativo `POST /payments/orders/sandbox-test` cria uma Checkout Pro Order pela API `/v1/orders`, com valor e descrição informados para teste, e retorna `orderId` e `checkoutUrl`. A habilitação é explícita via `MERCADOPAGO_ORDERS_SANDBOX_TEST_ENABLED=true`, desabilitada por padrão; essa opção deve ser usada apenas localmente com credenciais de teste, pois o prefixo do Access Token não identifica com segurança o ambiente. A Order exige UUID em `X-Idempotency-Key` e não está vinculada a solicitação ou orçamento. A criação foi validada com HTTP 201 e uma Order de teste. A verificação existente `GET /payments/integration-check` foi mantida.
+**Status:** fluxo principal implementado; aplicação da migration v7 e teste manual com webhook/checkout permanecem pendentes. O endpoint administrativo `POST /payments/orders/sandbox-test` foi mantido como prova isolada da integração e segue desabilitado por padrão.
 
-- Para testar: configurar `MERCADOPAGO_ACCESS_TOKEN` com credencial de teste e habilitar a flag apenas no backend local; autenticar como administrador, criar uma Order com UUID idempotente e abrir a `checkoutUrl`.
-- Ainda pendente: persistência e vínculo da Order ao orçamento aprovado, URLs de retorno/deep link, notificações/webhooks idempotentes, confirmação do pagamento, consulta/cancelamento/reembolso e fluxo de produção.
-- Antes da produção: validar com o Mercado Pago a conta/grant e as credenciais apropriadas, URLs públicas com SSL, regras de retenção do saldo e viabilidade do repasse manual por Pix. Não habilitar o endpoint de teste como fluxo de cobrança real.
+- Migration `v7_payment_orders.sql` persiste um pagamento por orçamento aprovado; tentativas repetidas reutilizam o registro com novas chaves idempotentes.
+- O cliente inicia Checkout Pro apenas para seu próprio orçamento aprovado. O backend cria a Order, define URLs de retorno, abre a checkout URL no app e disponibiliza consulta/sincronização de status. O retorno/deep link não altera o status financeiro.
+- Webhooks exigem validação HMAC de `x-signature` e `x-request-id`; o backend consulta a Order diretamente antes de atualizar estado. Um job reconcilia Orders pendentes a cada 15 minutos, evitando depender exclusivamente do webhook.
+- O gateway inclui consulta, cancelamento de Orders não pagas e reembolso integral; o reembolso é administrativo nesta parte. Estados são registrados no histórico de ciclo de vida e notificações internas.
+- Para testar: aplicar v7; configurar `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` no backend; cadastrar no painel do Mercado Pago uma URL pública HTTPS `/payments/webhook`; aprovar um orçamento com usuário cliente e testar o fluxo com credenciais/usuários de sandbox.
+- Pendências para o responsável: aplicar migration v7; obter/configurar o segredo de assinatura; publicar ou tunelar endpoint HTTPS do webhook; confirmar no painel o tópico de notificação de Orders; testar Pix/cartão aprovado, recusado e cancelado, repetição de webhook e deep link em build instalado; configurar a URL de retorno HTTPS se houver frontend web em produção.
+- Antes da produção: validar com o Mercado Pago a conta/grant e as credenciais apropriadas, testar os callbacks no domínio com SSL e definir retenção do saldo/repasse manual por Pix. Não habilitar o endpoint sandbox como fluxo de cobrança real.
 
 - Implementar Checkout Pro Orders: criar a order no backend e encaminhar o cliente à URL de checkout do Mercado Pago.
 - Configurar URLs de retorno compatíveis com o app, tratar o deep link de retorno e não considerar esse retorno prova de pagamento confirmado.
 - Obter e usar credenciais somente no backend; manter `client_secret` e `access_token` fora do app/frontend. Se no futuro for habilitado OAuth de vendedores, armazenar os tokens por vendedor de forma protegida e tratar a rotação de `refresh_token` de uso único.
-- Persistir o pagamento e processar notificações/webhooks de forma idempotente; só marcar pago após confirmação confiável do Mercado Pago.
+- Persistir o pagamento e processar notificações/webhooks de forma idempotente; só marcar pago após confirmação confiável do Mercado Pago. Implementado; falta teste manual no sandbox.
 - Tratar os estados da order documentados pelo Checkout Pro Orders; não iniciar serviço enquanto não houver confirmação de pagamento.
-- Implementar consulta/cancelamento/reembolso de order conforme a API escolhida e manter o reembolso pelo meio original.
+- Implementar consulta/cancelamento/reembolso de order conforme a API escolhida e manter o reembolso pelo meio original. Implementado no backend para consulta, cancelamento de Order pendente e reembolso integral administrativo; integração manual ainda pendente.
 - Não armazenar número completo nem código de segurança do cartão.
 
-**Teste/aceite:** no sandbox, cliente é redirecionado ao checkout e retorna ao app; Pix/cartão aprovado e recusado, webhook repetido e eventos fora de ordem são tratados; retorno ao app sozinho nunca marca o pagamento como confirmado.
+**Teste/aceite:** testes automatizados verificam assinatura válida/inválida e transições; `mvn -o package` (64 testes) e `tsc --noEmit` passam. No sandbox ainda é necessário testar redirecionamento/retorno, Pix/cartão aprovado e recusado, webhook repetido e eventos fora de ordem; retorno ao app sozinho nunca marca o pagamento como confirmado.
 
 ### Parte 8 — Cancelamento pré-execução e reembolso
 
@@ -278,5 +284,5 @@ As partes abaixo são entregas verticais pequenas, cada uma com escopo limitado 
 - Oportunidades e visitas: `RequestOpportunityService.java`, `RequestOpportunityResource.java`, `acaba-aqui-frontend/components/ProviderOpportunitiesScreen.tsx`.
 - Agendamento: `VisitSlotService.java`, `VisitSlotResource.java`, `VisitSlot.java`, `v5_visit_scheduling.sql`.
 - Conversas: `ConversationService.java`, `ConversationResource.java`, `acaba-aqui-frontend/components/ConversationsScreen.tsx` e `app/chat/[conversationId].tsx`.
-- Persistência atual: migrations `v1_features_epic1.sql` a `v5_visit_scheduling.sql`.
+- Persistência atual: migrations `v1_features_epic1.sql` a `v7_payment_orders.sql`.
 - Testes próximos ao fluxo: `ServiceRequestServiceTest.java`, `RequestOpportunityServiceTest.java` e `VisitSlotServiceTest.java`.

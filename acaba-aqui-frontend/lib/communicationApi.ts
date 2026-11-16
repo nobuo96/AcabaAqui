@@ -54,6 +54,47 @@ export interface VisitConfirmation {
   conversationId: number;
 }
 
+export interface ServiceQuote {
+  id: number;
+  solicitacaoId: number;
+  prestadorId: number;
+  prestadorNome: string;
+  descricao: string;
+  valorTotal: number;
+  status: 'ENVIADO' | 'APROVADO' | 'RECUSADO' | 'EXPIRADO' | 'CANCELADO';
+  dataCriacao: string;
+  expiraEm: string;
+}
+
+export interface InAppNotification {
+  id: number;
+  tipo: string;
+  mensagem: string;
+  solicitacaoId: number | null;
+  orcamentoId: number | null;
+  lida: boolean;
+  dataCriacao: string;
+}
+
+export interface ServicePayment {
+  id: number;
+  quoteId: number;
+  status: 'AGUARDANDO_PAGAMENTO' | 'PAGO' | 'RECUSADO' | 'EXPIRADO' | 'CANCELADO'
+    | 'REEMBOLSO_PENDENTE' | 'REEMBOLSADO' | 'REEMBOLSADO_PARCIAL' | 'CONTESTADO';
+  checkoutUrl: string | null;
+  amount: number;
+  paidAmount: number;
+  orderStatus: string | null;
+  statusDetail: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentLookup {
+  exists: boolean;
+  payment: ServicePayment | null;
+}
+
 async function request<T>(path: string, method = 'GET', body?: object): Promise<T> {
   const response = await apiFetch(path, {
     method,
@@ -113,4 +154,26 @@ export const visitSlotApi = {
   confirm: (slotId: number) =>
     request<VisitConfirmation>(`/visit-slots/${slotId}/confirm`, 'POST'),
   cancel: (slotId: number) => request<VisitSlot>(`/visit-slots/${slotId}/cancel`, 'POST'),
+};
+
+export const serviceQuoteApi = {
+  list: (requestId: number) => request<ServiceQuote[]>(`/service-quotes/requests/${requestId}`),
+  send: (requestId: number, input: { descricao: string; valorTotal: number }) =>
+    request<ServiceQuote>(`/service-quotes/requests/${requestId}`, 'POST', input),
+  approve: (quoteId: number) => request<ServiceQuote>(`/service-quotes/${quoteId}/approve`, 'POST'),
+  reject: (quoteId: number) => request<ServiceQuote>(`/service-quotes/${quoteId}/reject`, 'POST'),
+};
+
+export const inAppNotificationApi = {
+  list: () => request<InAppNotification[]>('/notifications'),
+  markRead: (notificationId: number) => request<void>(`/notifications/${notificationId}/read`, 'PUT'),
+};
+
+export const servicePaymentApi = {
+  getForQuote: (quoteId: number) => request<PaymentLookup>(`/payments/quotes/${quoteId}`),
+  get: (paymentId: number) => request<ServicePayment>(`/payments/${paymentId}`),
+  sync: (paymentId: number) => request<ServicePayment>(`/payments/${paymentId}/sync`, 'POST'),
+  startCheckout: (quoteId: number) =>
+    request<ServicePayment>(`/payments/quotes/${quoteId}/checkout`, 'POST'),
+  cancel: (paymentId: number) => request<ServicePayment>(`/payments/${paymentId}/cancel`, 'POST'),
 };
