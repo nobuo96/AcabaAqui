@@ -80,7 +80,8 @@ export interface ServicePayment {
   id: number;
   quoteId: number;
   status: 'AGUARDANDO_PAGAMENTO' | 'PAGO' | 'RECUSADO' | 'EXPIRADO' | 'CANCELADO'
-    | 'REEMBOLSO_PENDENTE' | 'REEMBOLSADO' | 'REEMBOLSADO_PARCIAL' | 'CONTESTADO';
+    | 'REEMBOLSO_PENDENTE' | 'REEMBOLSADO' | 'REEMBOLSADO_PARCIAL' | 'CONTESTADO'
+    | 'REPASSE_PENDENTE' | 'REPASSADO';
   checkoutUrl: string | null;
   amount: number;
   paidAmount: number;
@@ -93,6 +94,42 @@ export interface ServicePayment {
 export interface PaymentLookup {
   exists: boolean;
   payment: ServicePayment | null;
+}
+
+export interface ServiceCancellationResponse {
+  payment: ServicePayment;
+  status: 'REEMBOLSO_PENDENTE' | 'FALHA_REEMBOLSO' | 'REEMBOLSADO';
+  reason: string;
+  result: string;
+  requestedAt: string;
+  refundedAt: string | null;
+}
+
+export interface ServiceExecutionHistory {
+  previousStatus: string | null;
+  status: string;
+  actorType: string;
+  occurredAt: string;
+}
+
+export interface ServiceExecution {
+  quoteId: number;
+  requestId: number;
+  serviceName: string;
+  description: string;
+  amount: number;
+  clientId: number;
+  clientName: string;
+  providerId: number;
+  providerName: string;
+  status: 'AGUARDANDO_INICIO' | 'EM_ANDAMENTO' | 'CONCLUIDA_PELO_PRESTADOR'
+    | 'APROVADA' | 'CONTESTADA' | 'CANCELADA';
+  paymentStatus: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  approveBy: string | null;
+  approvedAt: string | null;
+  history: ServiceExecutionHistory[];
 }
 
 async function request<T>(path: string, method = 'GET', body?: object): Promise<T> {
@@ -176,4 +213,67 @@ export const servicePaymentApi = {
   startCheckout: (quoteId: number) =>
     request<ServicePayment>(`/payments/quotes/${quoteId}/checkout`, 'POST'),
   cancel: (paymentId: number) => request<ServicePayment>(`/payments/${paymentId}/cancel`, 'POST'),
+  cancelService: (paymentId: number, reason: string) =>
+    request<ServiceCancellationResponse>(`/payments/${paymentId}/cancel-service`, 'POST', { reason }),
+};
+
+export const serviceExecutionApi = {
+  list: () => request<ServiceExecution[]>('/service-executions'),
+  get: (quoteId: number) => request<ServiceExecution>(`/service-executions/${quoteId}`),
+  start: (quoteId: number) =>
+    request<ServiceExecution>(`/service-executions/${quoteId}/start`, 'POST'),
+  complete: (quoteId: number) =>
+    request<ServiceExecution>(`/service-executions/${quoteId}/complete`, 'POST'),
+  approve: (quoteId: number) =>
+    request<ServiceExecution>(`/service-executions/${quoteId}/approve`, 'POST'),
+};
+
+export type PixKeyType = 'CPF' | 'CNPJ' | 'EMAIL' | 'TELEFONE' | 'ALEATORIA';
+
+export interface ProviderPixKey {
+  hasKey: boolean;
+  type: PixKeyType | null;
+  maskedValue: string | null;
+  updatedAt: string | null;
+}
+
+export interface ServicePayout {
+  id: number;
+  quoteId: number;
+  serviceName: string;
+  providerId: number;
+  providerName: string;
+  paymentAmount: number | null;
+  paymentStatus: ServicePayment['status'] | null;
+  status: 'PENDENTE' | 'PAGO';
+  reason: 'APROVACAO_CLIENTE' | 'PRAZO_EXPIRADO';
+  eligibleAt: string;
+  approvalDeadline: string | null;
+  pixKeyType: PixKeyType | null;
+  pixKeyMasked: string | null;
+  pixKeyValue: string | null;
+  disputeOpen: boolean;
+  canPay: boolean;
+  transferredAmount: number | null;
+  transferReference: string | null;
+  receiptReference: string | null;
+  paidAt: string | null;
+  administratorName: string | null;
+}
+
+export const providerPixKeyApi = {
+  get: () => request<ProviderPixKey>('/provider/pix-key'),
+  update: (type: PixKeyType, value: string) =>
+    request<ProviderPixKey>('/provider/pix-key', 'PUT', { type, value }),
+};
+
+export const servicePayoutApi = {
+  list: () => request<ServicePayout[]>('/payouts'),
+  get: (payoutId: number) => request<ServicePayout>(`/payouts/${payoutId}`),
+  markPaid: (payoutId: number, input: {
+    amount: number;
+    transferReference: string;
+    receiptReference?: string;
+    expectedPixKey: string;
+  }) => request<ServicePayout>(`/payouts/${payoutId}/paid`, 'POST', input),
 };

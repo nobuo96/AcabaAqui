@@ -24,6 +24,8 @@ export default function PerfilScreen() {
         <AcabaAquiOption text="Informações Pessoais"
           onPress={() => router.push('/prestador/informacoesPessoais')} />
         <AcabaAquiOption text="Gerenciar Endereços" onPress={() => router.push('/enderecos')} />
+        <AcabaAquiOption text="Chave Pix para repasses"
+          onPress={() => router.push('/prestador/chave-pix')} />
         <AcabaAquiOption text="Alterar Senha"
           onPress={() => router.push('/prestador/alterarSenha')} />
         <AcabaAquiOption text="Sair" onPress={handleLogout} />

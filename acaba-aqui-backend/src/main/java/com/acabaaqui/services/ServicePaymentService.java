@@ -1,6 +1,8 @@
 package com.acabaaqui.services;
 
 import com.acabaaqui.model.PaymentStatus;
+import com.acabaaqui.model.ServiceCancellation;
+import com.acabaaqui.model.ServiceCancellationStatus;
 import com.acabaaqui.model.ServicePayment;
 import com.acabaaqui.model.ServicePaymentOrderAttempt;
 import com.acabaaqui.model.ServiceQuote;
@@ -9,6 +11,8 @@ import com.acabaaqui.model.ServiceRequest;
 import com.acabaaqui.model.User;
 import com.acabaaqui.persistence.ServicePaymentRepository;
 import com.acabaaqui.persistence.ServicePaymentOrderAttemptRepository;
+import com.acabaaqui.persistence.ServiceCancellationRepository;
+import com.acabaaqui.persistence.LifecycleStatusHistoryRepository;
 import com.acabaaqui.persistence.ServiceQuoteRepository;
 import com.acabaaqui.persistence.ServiceRequestRepository;
 import com.acabaaqui.persistence.UserRepository;
@@ -44,6 +48,12 @@ public class ServicePaymentService {
     ServicePaymentOrderAttemptRepository attemptRepository;
 
     @Inject
+    ServiceCancellationRepository cancellationRepository;
+
+    @Inject
+    LifecycleStatusHistoryRepository lifecycleHistoryRepository;
+
+    @Inject
     ServiceQuoteRepository quoteRepository;
 
     @Inject
@@ -63,6 +73,9 @@ public class ServicePaymentService {
 
     @Inject
     InAppNotificationService notificationService;
+
+    @Inject
+    ServiceExecutionService executionService;
 
     @Transactional
     public PaymentResponse iniciarCheckout(Integer clientId, Long quoteId) {
@@ -174,6 +187,9 @@ public class ServicePaymentService {
     @Transactional
     public PaymentResponse sincronizarComoCliente(Integer clientId, Long paymentId) {
         validarAccessToken();
+        ServicePayment initialPayment = paymentRepository.buscarPorId(paymentId);
+        validarPropriedade(initialPayment, clientId);
+        requestRepository.buscarComBloqueio(initialPayment.getOrcamento().getSolicitacao().getId());
         ServicePayment payment = paymentRepository.buscarPorIdComBloqueio(paymentId);
         validarPropriedade(payment, clientId);
         if ((payment.getStatus() == PaymentStatus.AGUARDANDO_PAGAMENTO
@@ -187,6 +203,9 @@ public class ServicePaymentService {
     @Transactional
     public PaymentResponse cancelar(Integer clientId, Long paymentId) {
         validarAccessToken();
+        ServicePayment initialPayment = paymentRepository.buscarPorId(paymentId);
+        validarPropriedade(initialPayment, clientId);
+        requestRepository.buscarComBloqueio(initialPayment.getOrcamento().getSolicitacao().getId());
         ServicePayment payment = paymentRepository.buscarPorIdComBloqueio(paymentId);
         validarPropriedade(payment, clientId);
         if (payment.getStatus() == PaymentStatus.CANCELADO
@@ -209,6 +228,11 @@ public class ServicePaymentService {
     @Transactional
     public PaymentResponse reembolsar(Long paymentId, Integer adminId) {
         validarAccessToken();
+        ServicePayment initialPayment = paymentRepository.buscarPorId(paymentId);
+        if (initialPayment == null) {
+            throw notFound();
+        }
+        requestRepository.buscarComBloqueio(initialPayment.getOrcamento().getSolicitacao().getId());
         ServicePayment payment = paymentRepository.buscarPorIdComBloqueio(paymentId);
         if (payment == null) {
             throw notFound();
@@ -237,6 +261,83 @@ public class ServicePaymentService {
     }
 
     @Transactional
+    public ServiceCancellationResponse cancelarServico(Integer clientId, Long paymentId, String reason) {
+        ServicePayment initialPayment = paymentRepository.buscarPorId(paymentId);
+        if (initialPayment == null
+                || !initialPayment.getOrcamento().getSolicitacao().getUsuario().getId().equals(clientId)) {
+            throw notFound();
+        }
+        Long quoteId = initialPayment.getOrcamento().getId();
+        Long requestId = initialPayment.getOrcamento().getSolicitacao().getId();
+
+        ServiceRequest request = requestRepository.buscarComBloqueio(requestId);
+        ServicePayment payment = paymentRepository.buscarPorIdComBloqueio(paymentId);
+        validarPropriedade(payment, clientId);
+        if (request == null) {
+            throw notFound();
+        }
+        ServiceCancellation cancellation = cancellationRepository.buscarPorPagamentoComBloqueio(paymentId);
+        if (cancellation == null) {
+            String validatedReason = ServiceCancellationPolicy.validarMotivo(reason);
+            boolean executionStarted = executionStarted(quoteId);
+            ServiceCancellationPolicy.validarCancelamento(payment.getStatus(), executionStarted);
+            if (payment.getStatus() != PaymentStatus.PAGO) {
+                throw conflict("Já existe uma operação de reembolso para este pagamento.");
+            }
+            if (payment.getMercadoPagoOrderId() == null) {
+                throw conflict("O pedido do Mercado Pago não está disponível para reembolso.");
+            }
+
+            cancellation = new ServiceCancellation();
+            cancellation.setPagamento(payment);
+            cancellation.setMotivo(validatedReason);
+            cancellation.setStatus(ServiceCancellationStatus.REEMBOLSO_PENDENTE);
+            cancellation.setResultado("Solicitação registrada; aguardando confirmação do Mercado Pago.");
+            cancellationRepository.persist(cancellation);
+            cancellationRepository.flush();
+            transicionar(payment, PaymentStatus.REEMBOLSO_PENDENTE,
+                    LifecycleStatusTransitionPolicy.CLIENTE, request.getUsuario());
+        } else {
+            if (cancellation.getStatus() == ServiceCancellationStatus.REEMBOLSADO) {
+                return cancellationResponse(payment, cancellation);
+            }
+            ServiceCancellationPolicy.validarCancelamento(payment.getStatus(), executionStarted(quoteId));
+            if (payment.getStatus() == PaymentStatus.PAGO) {
+                transicionar(payment, PaymentStatus.REEMBOLSO_PENDENTE,
+                        LifecycleStatusTransitionPolicy.CLIENTE, request.getUsuario());
+            }
+        }
+
+        validarAccessToken();
+        try {
+            MercadoPagoOrderGateway.OrderSnapshot snapshot = orderGateway.reembolsarPedido(
+                    accessToken,
+                    payment.getMercadoPagoOrderId(),
+                    chaveDeterministica("service-cancel-refund", payment.getId()));
+            aplicarEstadoPedido(payment, snapshot);
+            if (payment.getStatus() == PaymentStatus.REEMBOLSADO) {
+                cancellation.setStatus(ServiceCancellationStatus.REEMBOLSADO);
+                cancellation.setResultado("Reembolso integral confirmado pelo Mercado Pago.");
+                cancellation.setDataReembolso(LocalDateTime.now());
+                cancelarExecucao(quoteId, request.getUsuario());
+            } else if (payment.getStatus() == PaymentStatus.REEMBOLSADO_PARCIAL) {
+                cancellation.setStatus(ServiceCancellationStatus.FALHA_REEMBOLSO);
+                cancellation.setResultado(
+                        "O Mercado Pago informou reembolso parcial; é necessária análise administrativa.");
+            } else {
+                cancellation.setStatus(ServiceCancellationStatus.REEMBOLSO_PENDENTE);
+                cancellation.setResultado("O Mercado Pago ainda não confirmou o reembolso integral.");
+            }
+        } catch (WebApplicationException exception) {
+            LOG.warnf("Service cancellation refund for payment %d failed with HTTP status %d.",
+                    paymentId, exception.getResponse().getStatus());
+            cancellation.setStatus(ServiceCancellationStatus.FALHA_REEMBOLSO);
+            cancellation.setResultado("Não foi possível confirmar o reembolso. A solicitação pode ser tentada novamente.");
+        }
+        return cancellationResponse(payment, cancellation);
+    }
+
+    @Transactional
     public void processarWebhook(String orderId, String requestId, String signature) {
         if (!signatureVerifier.configurado()) {
             throw new WebApplicationException(
@@ -252,6 +353,11 @@ public class ServicePaymentService {
     @Transactional
     public void sincronizar(Long paymentId) {
         validarAccessToken();
+        ServicePayment initialPayment = paymentRepository.buscarPorId(paymentId);
+        if (initialPayment == null) {
+            return;
+        }
+        requestRepository.buscarComBloqueio(initialPayment.getOrcamento().getSolicitacao().getId());
         ServicePayment payment = paymentRepository.buscarPorIdComBloqueio(paymentId);
         if (payment == null || payment.getMercadoPagoOrderId() == null) {
             return;
@@ -261,6 +367,12 @@ public class ServicePaymentService {
 
     private void sincronizarPorOrderId(String orderId) {
         validarAccessToken();
+        ServicePayment initialPayment = paymentRepository.buscarPorOrderId(orderId);
+        if (initialPayment == null) {
+            LOG.debugf("Ignoring Mercado Pago webhook for unknown order %s.", orderId);
+            return;
+        }
+        requestRepository.buscarComBloqueio(initialPayment.getOrcamento().getSolicitacao().getId());
         ServicePayment payment = paymentRepository.buscarPorOrderIdComBloqueio(orderId);
         if (payment == null) {
             LOG.debugf("Ignoring Mercado Pago webhook for unknown order %s.", orderId);
@@ -273,6 +385,29 @@ public class ServicePaymentService {
         MercadoPagoOrderGateway.OrderSnapshot snapshot =
                 orderGateway.consultarPedido(accessToken, payment.getMercadoPagoOrderId());
         aplicarEstadoPedido(payment, snapshot);
+    }
+
+    private boolean executionStarted(Long quoteId) {
+        return lifecycleHistoryRepository.existeAlgumStatus(
+                LifecycleStatusTransitionPolicy.EXECUCAO,
+                quoteId,
+                java.util.List.of("EM_ANDAMENTO", "CONCLUIDA_PELO_PRESTADOR", "APROVADA", "CONTESTADA"));
+    }
+
+    private void cancelarExecucao(Long quoteId, User actor) {
+        executionService.cancelarAposReembolso(quoteId, actor);
+    }
+
+    private ServiceCancellationResponse cancellationResponse(
+            ServicePayment payment,
+            ServiceCancellation cancellation) {
+        return new ServiceCancellationResponse(
+                toResponse(payment),
+                cancellation.getStatus().name(),
+                cancellation.getMotivo(),
+                cancellation.getResultado(),
+                cancellation.getDataSolicitacao(),
+                cancellation.getDataReembolso());
     }
 
     private void aplicarEstadoPedido(
@@ -311,7 +446,9 @@ public class ServicePaymentService {
             if (payment.getStatus() == PaymentStatus.AGUARDANDO_PAGAMENTO) {
                 transicionar(payment, PaymentStatus.PAGO, LifecycleStatusTransitionPolicy.MERCADO_PAGO, null);
             }
-            if (payment.getStatus() == PaymentStatus.PAGO) {
+            if (payment.getStatus() == PaymentStatus.PAGO
+                    || payment.getStatus() == PaymentStatus.REPASSE_PENDENTE
+                    || payment.getStatus() == PaymentStatus.REPASSADO) {
                 transicionar(payment, PaymentStatus.REEMBOLSO_PENDENTE,
                         LifecycleStatusTransitionPolicy.MERCADO_PAGO, null);
             }
@@ -324,7 +461,9 @@ public class ServicePaymentService {
                 transicionar(payment, PaymentStatus.PAGO, LifecycleStatusTransitionPolicy.MERCADO_PAGO, null);
             }
             if (payment.getStatus() == PaymentStatus.PAGO
-                    || payment.getStatus() == PaymentStatus.REEMBOLSO_PENDENTE) {
+                    || payment.getStatus() == PaymentStatus.REEMBOLSO_PENDENTE
+                    || payment.getStatus() == PaymentStatus.REPASSE_PENDENTE
+                    || payment.getStatus() == PaymentStatus.REPASSADO) {
                 transicionar(payment, PaymentStatus.REEMBOLSADO_PARCIAL,
                         LifecycleStatusTransitionPolicy.MERCADO_PAGO, null);
             }
@@ -370,6 +509,12 @@ public class ServicePaymentService {
                     || next == PaymentStatus.REEMBOLSADO_PARCIAL
                     || next == PaymentStatus.CONTESTADO;
             case REEMBOLSADO_PARCIAL -> next == PaymentStatus.CONTESTADO;
+            case REPASSE_PENDENTE -> next == PaymentStatus.REEMBOLSO_PENDENTE
+                    || next == PaymentStatus.REEMBOLSADO_PARCIAL
+                    || next == PaymentStatus.CONTESTADO;
+            case REPASSADO -> next == PaymentStatus.REEMBOLSO_PENDENTE
+                    || next == PaymentStatus.REEMBOLSADO_PARCIAL
+                    || next == PaymentStatus.CONTESTADO;
             default -> false;
         };
     }
@@ -380,6 +525,9 @@ public class ServicePaymentService {
             String actorType,
             User actor) {
         alterarStatus(payment, next, actorType, actor);
+        if (next == PaymentStatus.PAGO) {
+            executionService.criarAguardandoSeAusente(payment.getOrcamento());
+        }
         String[] message = notification(next);
         notificationService.criar(
                 payment.getOrcamento().getSolicitacao().getUsuario(),
@@ -505,4 +653,12 @@ public class ServicePaymentService {
             LocalDateTime updatedAt) { }
 
     public record PaymentLookup(boolean exists, PaymentResponse payment) { }
+
+    public record ServiceCancellationResponse(
+            PaymentResponse payment,
+            String status,
+            String reason,
+            String result,
+            LocalDateTime requestedAt,
+            LocalDateTime refundedAt) { }
 }

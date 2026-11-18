@@ -116,6 +116,38 @@ public class ServicePaymentResource {
     }
 
     @POST
+    @Path("/{paymentId}/cancel-service")
+    @Blocking
+    public Response cancelarServico(
+            @PathParam("paymentId") Long paymentId,
+            CancellationRequest request,
+            @Context SecurityContext context) {
+        Integer clientId = userId(context, "cliente");
+        if (clientId == null) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+        try {
+            ServicePaymentService.ServiceCancellationResponse result =
+                    service.cancelarServico(clientId, paymentId, request == null ? null : request.reason());
+            Response.ResponseBuilder response = Response.status(
+                    "REEMBOLSADO".equals(result.status())
+                            ? Response.Status.OK
+                            : Response.Status.ACCEPTED);
+            return response.entity(result).build();
+        } catch (IllegalArgumentException exception) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse(exception.getMessage()))
+                    .build();
+        } catch (IllegalStateException exception) {
+            return Response.status(Response.Status.CONFLICT)
+                    .entity(new ErrorResponse(exception.getMessage()))
+                    .build();
+        } catch (WebApplicationException exception) {
+            return error(exception);
+        }
+    }
+
+    @POST
     @Path("/{paymentId}/refund")
     @Blocking
     public Response reembolsar(
@@ -185,4 +217,5 @@ public class ServicePaymentResource {
     }
 
     public record ErrorResponse(String message) { }
+    public record CancellationRequest(String reason) { }
 }

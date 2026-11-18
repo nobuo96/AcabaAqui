@@ -90,6 +90,11 @@ class LifecycleStatusTransitionPolicyTest {
                 "CONCLUIDA_PELO_PRESTADOR",
                 LifecycleStatusTransitionPolicy.PRESTADOR));
         assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
+                LifecycleStatusTransitionPolicy.EXECUCAO,
+                "AGUARDANDO_INICIO",
+                "CANCELADA",
+                LifecycleStatusTransitionPolicy.CLIENTE));
+        assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
                 LifecycleStatusTransitionPolicy.DISPUTA,
                 "ABERTA",
                 "ENCERRADA_REEMBOLSO",

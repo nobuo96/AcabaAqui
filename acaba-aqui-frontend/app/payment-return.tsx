@@ -113,6 +113,8 @@ function paymentStatusLabel(status: NonNullable<PaymentLookup['payment']>['statu
     REEMBOLSADO: 'Pagamento reembolsado',
     REEMBOLSADO_PARCIAL: 'Pagamento reembolsado parcialmente',
     CONTESTADO: 'Pagamento em contestação',
+    REPASSE_PENDENTE: 'Repasse em processamento',
+    REPASSADO: 'Repasse realizado',
   }[status];
 }
 

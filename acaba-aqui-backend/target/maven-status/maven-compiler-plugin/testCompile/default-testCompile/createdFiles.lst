@@ -8,6 +8,7 @@ com\acabaaqui\services\ServiceRequestClosureServiceTest$RecordingHistory.class
 com\acabaaqui\resources\ServiceCatalogResourceTest$1.class
 com\acabaaqui\resources\ServiceCatalogResourceTest.class
 com\acabaaqui\services\ServiceRequestExpirationServiceTest$FakeRequestRepository.class
+com\acabaaqui\services\ServiceCancellationPolicyTest.class
 com\acabaaqui\services\UserServicePersonalInfoTest.class
 com\acabaaqui\services\ServiceRequestServiceTest$3.class
 com\acabaaqui\services\ProviderServicesServiceTest$FakeProviderServiceRepository.class
@@ -36,6 +37,7 @@ com\acabaaqui\services\ServiceQuoteServiceTest$RecordedTransition.class
 com\acabaaqui\services\MercadoPagoWebhookSignatureVerifierTest.class
 com\acabaaqui\services\VisitSlotServiceTest$RecordedTransition.class
 com\acabaaqui\services\AuthServiceTokenVersionTest$2.class
+com\acabaaqui\services\PixKeyValidationTest.class
 com\acabaaqui\services\ServiceRequestServiceTest$2.class
 com\acabaaqui\services\ChangePasswordServiceTest$TestCredentialRepository.class
 com\acabaaqui\services\RequestOpportunityServiceTest$FakeUserRepository.class
@@ -52,6 +54,7 @@ com\acabaaqui\services\ServiceRequestExpirationServiceTest.class
 com\acabaaqui\services\ServiceQuoteServiceTest.class
 com\acabaaqui\services\ProviderServicesServiceTest$FakeServiceCatalogRepository.class
 com\acabaaqui\services\VisitSlotServiceTest$FakeOpportunityRepository.class
+com\acabaaqui\services\ServiceExecutionPolicyTest.class
 com\acabaaqui\services\ServiceRequestServiceTest$1.class
 com\acabaaqui\services\ServiceRequestClosureServiceTest$RecordingVisitSlotService.class
 com\acabaaqui\services\UserServicePersonalInfoTest$2.class
@@ -62,6 +65,7 @@ com\acabaaqui\services\RequestOpportunityServiceTest$RecordingLifecycleStatusSer
 com\acabaaqui\services\VisitSlotServiceTest$RecordingHistory.class
 com\acabaaqui\services\AuthServiceTokenVersionTest.class
 com\acabaaqui\services\ServiceQuoteServiceTest$FakeRequestRepository.class
+com\acabaaqui\services\ServicePayoutPolicyTest.class
 com\acabaaqui\services\ServiceQuoteServiceTest$RecordingVisitSlotService.class
 com\acabaaqui\services\VisitSlotServiceTest$FakeConversationRepository.class
 com\acabaaqui\services\ServiceRequestClosureServiceTest$RecordedTransition.class

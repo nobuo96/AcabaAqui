@@ -51,6 +51,12 @@ export default function ClienteLayout() {
         }}
       />
       <Tabs.Screen
+        name="servicos"
+        options={{
+          title: 'Serviços',
+        }}
+      />
+      <Tabs.Screen
         name="conversas"
         options={{
           title: 'Conversas',

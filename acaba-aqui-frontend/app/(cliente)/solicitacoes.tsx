@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { AcabaAquiButton } from '@/components/AcabaAquiButton';
@@ -36,6 +36,9 @@ export default function SolicitacoesScreen() {
   const [workingQuoteId, setWorkingQuoteId] = useState<number | null>(null);
   const [workingPaymentQuoteId, setWorkingPaymentQuoteId] = useState<number | null>(null);
   const [confirmingPaymentQuoteId, setConfirmingPaymentQuoteId] = useState<number | null>(null);
+  const [serviceCancellationQuoteId, setServiceCancellationQuoteId] = useState<number | null>(null);
+  const [cancellationReasons, setCancellationReasons] = useState<Record<number, string>>({});
+  const [cancellationResults, setCancellationResults] = useState<Record<number, string>>({});
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -132,6 +135,32 @@ export default function SolicitacoesScreen() {
       const message = paymentError instanceof Error
         ? paymentError.message
         : 'Não foi possível cancelar o checkout.';
+      await loadRequests();
+      setError(message);
+    } finally {
+      setWorkingPaymentQuoteId(null);
+    }
+  }
+
+  async function cancelPaidService(quoteId: number) {
+    const payment = paymentsByQuote[quoteId];
+    if (!payment || workingPaymentQuoteId !== null) return;
+    setWorkingPaymentQuoteId(quoteId);
+    setError('');
+    try {
+      const result = await servicePaymentApi.cancelService(
+        payment.id,
+        cancellationReasons[quoteId] ?? '',
+      );
+      setPaymentsByQuote((current) => ({ ...current, [quoteId]: result.payment }));
+      setCancellationResults((current) => ({ ...current, [quoteId]: result.result }));
+      if (result.status === 'REEMBOLSADO') {
+        setServiceCancellationQuoteId(null);
+      }
+    } catch (cancellationError) {
+      const message = cancellationError instanceof Error
+        ? cancellationError.message
+        : 'Não foi possível solicitar o cancelamento do serviço.';
       await loadRequests();
       setError(message);
     } finally {
@@ -321,6 +350,63 @@ export default function SolicitacoesScreen() {
                             <Text style={styles.muted}>
                               Pagamento: {paymentStatusLabel(paymentsByQuote[quote.id].status)}
                             </Text>
+                            {cancellationResults[quote.id] ? (
+                              <Text style={styles.muted}>{cancellationResults[quote.id]}</Text>
+                            ) : null}
+                            {paymentsByQuote[quote.id].status === 'PAGO' ? (
+                              serviceCancellationQuoteId === quote.id ? (
+                                <View style={styles.paymentConfirmation}>
+                                  <Text style={styles.muted}>
+                                    O cancelamento só é permitido antes do início do serviço. O reembolso será
+                                    solicitado pelo Mercado Pago ao meio de pagamento original.
+                                  </Text>
+                                  <TextInput
+                                    accessibilityLabel="Motivo do cancelamento"
+                                    maxLength={1000}
+                                    multiline
+                                    onChangeText={(value) => setCancellationReasons((current) => ({
+                                      ...current,
+                                      [quote.id]: value,
+                                    }))}
+                                    placeholder="Descreva o motivo (mínimo 5 caracteres)"
+                                    style={styles.cancellationReason}
+                                    value={cancellationReasons[quote.id] ?? ''}
+                                  />
+                                  <Pressable
+                                    disabled={workingPaymentQuoteId !== null}
+                                    onPress={() => { void cancelPaidService(quote.id); }}
+                                  >
+                                    <Text style={styles.dangerAction}>
+                                      {workingPaymentQuoteId === quote.id
+                                        ? 'Solicitando reembolso...'
+                                        : 'Confirmar cancelamento e reembolso'}
+                                    </Text>
+                                  </Pressable>
+                                  <Pressable onPress={() => setServiceCancellationQuoteId(null)}>
+                                    <Text style={styles.action}>Voltar</Text>
+                                  </Pressable>
+                                </View>
+                              ) : (
+                                <Pressable onPress={() => setServiceCancellationQuoteId(quote.id)}>
+                                  <Text style={styles.dangerAction}>Cancelar serviço e solicitar reembolso</Text>
+                                </Pressable>
+                              )
+                            ) : null}
+                            {paymentsByQuote[quote.id].status === 'REEMBOLSO_PENDENTE' ? (
+                              <>
+                                <Text style={styles.muted}>
+                                  A execução do serviço permanece bloqueada enquanto o reembolso é confirmado.
+                                </Text>
+                                <Pressable
+                                  disabled={workingPaymentQuoteId !== null}
+                                  onPress={() => { void cancelPaidService(quote.id); }}
+                                >
+                                  <Text style={styles.action}>
+                                    {workingPaymentQuoteId === quote.id ? 'Consultando...' : 'Consultar ou tentar reembolso novamente'}
+                                  </Text>
+                                </Pressable>
+                              </>
+                            ) : null}
                             {paymentsByQuote[quote.id].status === 'AGUARDANDO_PAGAMENTO'
                               && paymentsByQuote[quote.id].checkoutUrl ? (
                               <>
@@ -467,6 +553,8 @@ function paymentStatusLabel(status: ServicePayment['status']) {
     REEMBOLSADO: 'Reembolsado',
     REEMBOLSADO_PARCIAL: 'Reembolso parcial',
     CONTESTADO: 'Em contestação',
+    REPASSE_PENDENTE: 'Repasse em processamento',
+    REPASSADO: 'Repasse realizado',
   }[status];
 }
 
@@ -506,6 +594,8 @@ const styles = StyleSheet.create({
   quoteActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   paymentInfo: { borderTopColor: '#eee', borderTopWidth: 1, gap: 6, marginTop: 4, paddingTop: 8 },
   paymentConfirmation: { borderTopColor: '#eee', borderTopWidth: 1, gap: 4, paddingTop: 6 },
+  cancellationReason: { minHeight: 80, borderColor: '#ccc', borderRadius: 8, borderWidth: 1,
+    color: '#222', padding: 10, textAlignVertical: 'top' },
   quoteButton: { alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
   approveButton: { backgroundColor: '#a43434' },
   rejectButton: { borderColor: '#a43434', borderWidth: 1 },

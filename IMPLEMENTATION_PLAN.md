@@ -4,9 +4,9 @@ Este documento compara os requisitos de [FEATURES.md](./FEATURES.md) com o estad
 
 ## Resumo executivo
 
-O fluxo implementado cobre solicitações, oportunidades internas, histórico, agendamento e chat, expiração de oportunidades e o backend de orçamentos com notificações persistidas. A interface de orçamentos está planejada para a Parte 6.
+O fluxo implementado cobre solicitações, oportunidades internas, histórico, agendamento e chat, expiração, orçamentos e Checkout Pro vinculado ao orçamento aprovado. O cliente também pode solicitar cancelamento pré-execução e reembolso integral; migration v8 aplicada e fluxo manual confirmado. A Parte 9 foi testada e aceita pelo usuário. A Parte 10 está implementada no código e aguarda migration v10, configuração da chave de criptografia Pix e teste manual.
 
-Pagamentos de produção, execução/aprovação do serviço, disputas/evidências e garantia seguem pendentes nas partes seguintes. O status da solicitação continua limitado a `CRIADA` e `ENCERRADA`; os novos estados de orçamento são independentes.
+Disputas/evidências e garantia seguem pendentes nas partes seguintes. O status da solicitação continua limitado a `CRIADA` e `ENCERRADA`; os novos estados financeiros e de orçamento são independentes.
 
 ## Matriz de funcionalidades
 
@@ -16,11 +16,11 @@ Pagamentos de produção, execução/aprovação do serviço, disputas/evidênci
 | Prestadores correspondentes são notificados | **Implementado como feed interno** — ao criar a solicitação, são geradas oportunidades para prestadores correspondentes ao serviço e à cidade/UF. O produto definiu que as notificações serão somente dentro do app. | `RequestOpportunityService.java`; `RequestOpportunityResource.java`; `v2_request_communications.sql`; `ProviderOpportunitiesScreen.tsx` |
 | Prestador aceita e escolhe horário da visita, reservado contra outros prestadores | **Implementado** — backend e tela do prestador permitem reservar/cancelar; blocos são protegidos por bloqueio transacional. | `VisitSlotService.java`; `VisitSlotResource.java`; `ProviderOpportunitiesScreen.tsx` |
 | Cliente confirma o horário; chat abre após confirmação | **Implementado** — cliente confirma/cancela na lista de solicitações; o backend cria/reutiliza o chat somente na confirmação. | `VisitSlotService.java`; `ConversationService.java`; `solicitacoes.tsx` |
-| Prestador envia orçamento; cliente vê todos, aprova um e a decisão é notificada | **Backend implementado na Parte 5** — entidade, migration v6, APIs autorizadas, expiração e notificações internas; interface segue para a Parte 6. | `ServiceQuoteService.java`; `ServiceQuoteResource.java`; `v6_service_quotes_and_notifications.sql` |
-| Pagamento via Pix ou cartão | **Não implementado** — nenhuma integração ou fluxo de pagamento foi encontrado. | `pom.xml`, fontes e migrations do backend; `package.json` e fontes do frontend |
-| Pagamento recebido pela plataforma e liberado ao prestador somente após aprovação do cliente | **Não implementado** — não há ciclo financeiro, estados de pagamento, webhooks, repasse ou reembolso. | Fontes e migrations do backend |
-| Cliente aprova a execução e isso inicia o pagamento do prestador | **Não implementado** — não existe registro de execução, aprovação nem liberação financeira. | Fontes e migrations do backend |
-| Lista de serviços com status e prazos, detalhe e ações para contestar/liberar pagamento | **Parcial** — existe lista de solicitações do cliente com serviço, área, endereço, data, status simplificado e cancelamento. Não há detalhe individual, prazos, contestação ou liberação de pagamento. | `acaba-aqui-frontend/app/(cliente)/solicitacoes.tsx`; `ServiceRequestResource.java`; `ServiceRequestStatus.java` |
+| Prestador envia orçamento; cliente vê todos, aprova um e a decisão é notificada | **Implementado** — backend, tela do cliente/prestador, expiração e notificações internas. | `ServiceQuoteService.java`; `ServiceQuoteResource.java`; `v6_service_quotes_and_notifications.sql`; `solicitacoes.tsx`; `ProviderOpportunitiesScreen.tsx` |
+| Pagamento via Pix ou cartão | **Checkout Pro implementado e pagamento de sandbox confirmado manualmente** — cartão/Pix são processados no ambiente Mercado Pago; faltam casos manuais de recusa, reembolso e retorno mobile. | `ServicePaymentService.java`; `MercadoPagoOrdersHttpGateway.java`; `v7_payment_orders.sql`; `payment-return.tsx` |
+| Pagamento recebido pela plataforma e liberado ao prestador somente após aprovação do cliente | **Parcial** — cobrança e confirmação estão integradas; as Partes 9–10 criam e registram repasse manual, ainda aguardando migration v10 e teste operacional. | `ServicePaymentService.java`; `ServicePayoutService.java`; `v7_payment_orders.sql`; `v10_manual_pix_payouts.sql` |
+| Cliente aprova a execução e isso inicia o pagamento do prestador | **Parcial** — execução/aprovação testadas; a pendência de Pix manual está implementada e aguarda validação operacional. | `ServiceExecutionService.java`; `ServicePayoutService.java`; `ServiceExecutionsScreen.tsx` |
+| Lista de serviços com status e prazos, detalhe e ações para contestar/liberar pagamento | **Parcial** — lista/detalhe, prazo e aprovação implementados na Parte 9; repasse manual disponível na Parte 10; contestação e resolução de disputa continuam na Parte 11. | `ServiceExecutionsScreen.tsx`; `ServicePayoutService.java`; `IMPLEMENTATION_PLAN.md` |
 | Disputa, evidências e reembolso ao cliente quando aplicável | **Não implementado** — não há estados de disputa, armazenamento de evidências, painel/decisão administrativa ou reembolso. | Fontes e migrations do backend; telas administrativas existentes |
 | Chamado de garantia, prazo para correção e encerramento como resolvido | **Não implementado** — não há fluxo ou configuração de garantia. | Fontes e migrations do backend; README |
 
@@ -194,14 +194,14 @@ As partes abaixo são entregas verticais pequenas, cada uma com escopo limitado 
 
 **Depende de:** Partes 5 e 0.
 
-**Status:** fluxo principal implementado; aplicação da migration v7 e teste manual com webhook/checkout permanecem pendentes. O endpoint administrativo `POST /payments/orders/sandbox-test` foi mantido como prova isolada da integração e segue desabilitado por padrão.
+**Status:** fluxo principal implementado; o usuário aplicou a v7 e confirmou pagamento de sandbox com atualização correta do estado na plataforma. O usuário relatou que o checkout não retornou automaticamente ao app; essa validação ainda está pendente. O endpoint administrativo `POST /payments/orders/sandbox-test` foi mantido como prova isolada da integração e segue desabilitado por padrão.
 
 - Migration `v7_payment_orders.sql` persiste um pagamento por orçamento aprovado; tentativas repetidas reutilizam o registro com novas chaves idempotentes.
 - O cliente inicia Checkout Pro apenas para seu próprio orçamento aprovado. O backend cria a Order, define URLs de retorno, abre a checkout URL no app e disponibiliza consulta/sincronização de status. O retorno/deep link não altera o status financeiro.
 - Webhooks exigem validação HMAC de `x-signature` e `x-request-id`; o backend consulta a Order diretamente antes de atualizar estado. Um job reconcilia Orders pendentes a cada 15 minutos, evitando depender exclusivamente do webhook.
 - O gateway inclui consulta, cancelamento de Orders não pagas e reembolso integral; o reembolso é administrativo nesta parte. Estados são registrados no histórico de ciclo de vida e notificações internas.
-- Para testar: aplicar v7; configurar `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` no backend; cadastrar no painel do Mercado Pago uma URL pública HTTPS `/payments/webhook`; aprovar um orçamento com usuário cliente e testar o fluxo com credenciais/usuários de sandbox.
-- Pendências para o responsável: aplicar migration v7; obter/configurar o segredo de assinatura; publicar ou tunelar endpoint HTTPS do webhook; confirmar no painel o tópico de notificação de Orders; testar Pix/cartão aprovado, recusado e cancelado, repetição de webhook e deep link em build instalado; configurar a URL de retorno HTTPS se houver frontend web em produção.
+- O fluxo de checkout e a confirmação do pagamento foram testados pelo usuário com sucesso. O Access Token, segredo do webhook e a URL pública já foram configurados para o teste reportado.
+- Pendências para o responsável: diagnosticar por que o deep link de retorno não reabriu o app no ambiente utilizado; validar retorno em build instalado e configurar URL HTTPS se houver frontend web; testar pagamento recusado, repetição de webhook e reembolso no sandbox.
 - Antes da produção: validar com o Mercado Pago a conta/grant e as credenciais apropriadas, testar os callbacks no domínio com SSL e definir retenção do saldo/repasse manual por Pix. Não habilitar o endpoint sandbox como fluxo de cobrança real.
 
 - Implementar Checkout Pro Orders: criar a order no backend e encaminhar o cliente à URL de checkout do Mercado Pago.
@@ -212,15 +212,18 @@ As partes abaixo são entregas verticais pequenas, cada uma com escopo limitado 
 - Implementar consulta/cancelamento/reembolso de order conforme a API escolhida e manter o reembolso pelo meio original. Implementado no backend para consulta, cancelamento de Order pendente e reembolso integral administrativo; integração manual ainda pendente.
 - Não armazenar número completo nem código de segurança do cartão.
 
-**Teste/aceite:** testes automatizados verificam assinatura válida/inválida e transições; `mvn -o package` (64 testes) e `tsc --noEmit` passam. No sandbox ainda é necessário testar redirecionamento/retorno, Pix/cartão aprovado e recusado, webhook repetido e eventos fora de ordem; retorno ao app sozinho nunca marca o pagamento como confirmado.
+**Teste/aceite:** testes automatizados verificam assinatura válida/inválida e transições; `mvn -o package` (65 testes antes da Parte 8) e `tsc --noEmit` passam. O usuário confirmou o pagamento de sandbox e a atualização do estado; redirecionamento/retorno automático, recusa, webhook repetido e eventos fora de ordem ainda precisam de validação manual. Retorno ao app sozinho nunca marca o pagamento como confirmado.
 
 ### Parte 8 — Cancelamento pré-execução e reembolso
 
 **Depende de:** Parte 7.
 
-- Permitir cancelamento pelo cliente após pagamento somente antes do registro de início da execução.
-- Reembolsar pelo meio original: cartão pelo Mercado Pago e Pix por Pix.
-- Rejeitar cancelamento após início do serviço e registrar o motivo/resultado financeiro.
+- **Status:** implementado no backend e na tela do cliente; migration v8 aplicada e teste manual confirmado pelo usuário (reembolso e cancelamento concluídos sem erro).
+- Migration `v8_service_cancellation.sql` armazena um pedido de cancelamento por pagamento, com motivo, estado, resultado e data do reembolso; v7 não é alterada por já estar aplicada.
+- Cliente pode solicitar cancelamento após pagamento somente antes do início da execução. A execução é verificada pelo histórico `EXECUCAO`; Parte 9 deve usar o `quoteId` como `entityId` e bloquear início quando o pagamento estiver em `REEMBOLSO_PENDENTE` ou `REEMBOLSADO`.
+- Reembolso integral é solicitado à Order pelo Mercado Pago, que devolve os fundos ao meio original da transação. Chave de idempotência estável por pagamento e registro único impedem duplicação em reenvios; falhas e estados ainda não confirmados ficam pendentes/tentáveis novamente.
+- Após confirmação do reembolso, o estado `EXECUCAO` registra cancelamento, e cliente recebe o estado financeiro pelo fluxo de pagamento.
+- Pendências para o responsável: junto com a Parte 9, testar o bloqueio do cancelamento após início da execução e serialização entre iniciar/cancelar. Testar também falha temporária/repetição e confirmar no painel/conta se o reembolso de Pix é permitido para a Order utilizada.
 
 **Teste/aceite:** testes cobrem cancelamento antes/depois do início e reexecução da operação; não há reembolso duplicado e o meio de reembolso corresponde ao pagamento.
 
@@ -228,22 +231,29 @@ As partes abaixo são entregas verticais pequenas, cada uma com escopo limitado 
 
 **Depende de:** Partes 7 e 8.
 
-- Permitir ao prestador registrar início e conclusão; a conclusão inicia a janela de 7 dias corridos para aprovação ou contestação.
-- Criar lista e detalhe de serviços com estado, prazo, histórico e ações disponíveis.
-- Permitir aprovação pelo cliente dentro do prazo e impedir aprovação repetida ou por usuário não participante.
+- **Status:** implementada e testada/aceita pelo usuário; migration v9 aplicada.
+- Migration `v9_service_execution.sql` cria a execução por orçamento e faz backfill do estado/histórico a partir de pagamentos e registros `EXECUCAO` existentes.
+- A entidade/serviço de execução deve usar o ID do orçamento (`quoteId`) no histórico `EXECUCAO` para serializar com cancelamento e rejeitar início quando já houver cancelamento/reembolso pendente ou concluído.
+- Prestador registra início/conclusão; a conclusão inicia a janela de 7 dias corridos para aprovação pelo cliente. A abertura de contestação continua na Parte 11.
+- Aplicativo oferece lista/detalhe de serviços para cliente e prestador, com estado, prazo, histórico e ações.
+- Aprovação do cliente é autorizada pelo vínculo com a solicitação, limitada ao prazo e idempotente; não executa repasse nesta parte.
+- Início, cancelamento e alterações de pagamento serializam com a mesma ordem de locks (solicitação → pagamento), evitando que o cancelamento e o início passem simultaneamente.
 
-**Teste/aceite:** testes cobrem transições e permissões; a conclusão abre o prazo correto; o detalhe exibe estado/prazo; aprovação repetida não gera novo efeito financeiro.
+**Teste/aceite:** testes automatizados e type-check passam; o usuário confirmou o fluxo manual da Parte 9.
 
 ### Parte 10 — Fila e execução de repasse manual via Pix
 
 **Depende de:** Parte 9 e decisão operacional da Parte 0.
 
-- Permitir ao prestador cadastrar/alterar chave Pix com acesso restrito e exibição mascarada.
-- Criar pendência de repasse após aprovação explícita ou 7 dias corridos sem ação/disputa.
-- Criar tela/fila administrativa para executar o Pix, registrar valor, destinatário, comprovante/identificador e marcar como pago.
-- Bloquear repasse enquanto houver disputa aberta.
+- **Status:** implementação pronta; migration v10, configuração da chave de criptografia e validação manual pelo usuário pendentes.
+- Prestador cadastra/atualiza uma chave Pix (CPF, CNPJ, e-mail, telefone ou aleatória); a API restringe o acesso, mascara a exibição ao prestador e armazena o valor com AES-GCM.
+- O segredo `APP_PIX_KEY_ENCRYPTION_SECRET` deve ser uma chave Base64 independente de 32 bytes, consistente entre instâncias e mantida com backup seguro. O detalhe administrativo de repasse pendente revela a chave para que o administrador execute o Pix.
+- Uma única pendência por orçamento é criada após aprovação explícita ou pela tarefa de 15 minutos após 7 dias sem ação/disputa. O registro é criado mesmo sem chave Pix; o administrador não pode concluir até o prestador cadastrá-la.
+- A fila administrativa registra valor transferido, destinatário/chave usada, identificador único de transação, referência opcional do comprovante, administrador e data. O valor informado é limitado ao valor pago, sem cálculo automático de taxa/comissão.
+- O Pix é executado manualmente a partir da conta da plataforma; a API apenas registra o resultado. Reenvio de registro não duplica o estado; transição financeira usa `REPASSE_PENDENTE` → `REPASSADO`.
+- A criação e conclusão do repasse consultam disputa aberta usando `quoteId` como `entityId` do histórico `DISPUTA`. A Parte 11 deve preservar essa convenção e executar os testes de suspensão/resolução do repasse.
 
-**Teste/aceite:** aprovação e expiração criam uma única pendência; disputa impede a criação/liberação; somente administrador conclui o repasse; registro repetido não paga duas vezes.
+**Teste/aceite:** testes automatizados e type-check passam; o usuário deve aplicar v10, configurar/guardar o segredo e validar chave mascarada, criação após aprovação/prazo, limite/registro do Pix, autorização administrativa, repetição e bloqueio por disputa. A UI não executa a transferência Pix.
 
 ### Parte 11 — Disputa e evidências
 

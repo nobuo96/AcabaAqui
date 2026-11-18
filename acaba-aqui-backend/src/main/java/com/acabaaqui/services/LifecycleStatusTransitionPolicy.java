@@ -89,6 +89,13 @@ public final class LifecycleStatusTransitionPolicy {
         allow(transitions, PAGAMENTO, "REEMBOLSADO_PARCIAL", "CONTESTADO", MERCADO_PAGO);
         allow(transitions, PAGAMENTO, "PAGO", "REPASSE_PENDENTE", SISTEMA);
         allow(transitions, PAGAMENTO, "REPASSE_PENDENTE", "REPASSADO", ADMINISTRADOR);
+        allow(transitions, PAGAMENTO, "REPASSE_PENDENTE", "REEMBOLSO_PENDENTE",
+                ADMINISTRADOR, MERCADO_PAGO);
+        allow(transitions, PAGAMENTO, "REPASSE_PENDENTE", "REEMBOLSADO_PARCIAL", MERCADO_PAGO);
+        allow(transitions, PAGAMENTO, "REPASSE_PENDENTE", "CONTESTADO", MERCADO_PAGO);
+        allow(transitions, PAGAMENTO, "REPASSADO", "REEMBOLSO_PENDENTE", MERCADO_PAGO);
+        allow(transitions, PAGAMENTO, "REPASSADO", "REEMBOLSADO_PARCIAL", MERCADO_PAGO);
+        allow(transitions, PAGAMENTO, "REPASSADO", "CONTESTADO", MERCADO_PAGO);
 
         allow(transitions, EXECUCAO, null, "AGUARDANDO_INICIO", SISTEMA);
         allow(transitions, EXECUCAO, "AGUARDANDO_INICIO", "EM_ANDAMENTO", PRESTADOR);

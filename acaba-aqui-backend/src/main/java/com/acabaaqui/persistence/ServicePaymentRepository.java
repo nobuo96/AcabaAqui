@@ -39,6 +39,12 @@ public class ServicePaymentRepository implements PanacheRepository<ServicePaymen
                 .withLock(LockModeType.PESSIMISTIC_WRITE).firstResult();
     }
 
+    public ServicePayment buscarPorOrderId(String orderId) {
+        return find("select p from ServicePayment p join fetch p.orcamento q "
+                        + "join fetch q.solicitacao r where p.mercadoPagoOrderId = ?1",
+                orderId).firstResult();
+    }
+
     public List<Long> listarIdsAguardando() {
         return getEntityManager().createQuery(
                         "select p.id from ServicePayment p "
@@ -47,7 +53,8 @@ public class ServicePaymentRepository implements PanacheRepository<ServicePaymen
                         Long.class)
                 .setParameter("statuses", List.of(
                         PaymentStatus.AGUARDANDO_PAGAMENTO,
-                        PaymentStatus.REEMBOLSO_PENDENTE))
+                        PaymentStatus.REEMBOLSO_PENDENTE,
+                        PaymentStatus.REPASSE_PENDENTE))
                 .getResultList();
     }
 }

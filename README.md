@@ -36,7 +36,7 @@ FLUSH PRIVILEGES;
 
 ## Configuração do Backend
 
-As alterações do banco são aplicadas por migrations SQL incrementais em `acaba-aqui-backend/src/main/resources/db/migration`; o Hibernate não cria/atualiza o schema automaticamente. Aplique manualmente `v4_lifecycle_status_history.sql` após `v1`–`v3`, depois `v5_visit_scheduling.sql`, `v6_service_quotes_and_notifications.sql` e `v7_payment_orders.sql`. Se o banco já tem a v6 aplicada, execute somente a v7 antes de iniciar o backend.
+As alterações do banco são aplicadas por migrations SQL incrementais em `acaba-aqui-backend/src/main/resources/db/migration`; o Hibernate não cria/atualiza o schema automaticamente. Aplique manualmente `v4_lifecycle_status_history.sql` após `v1`–`v3`, depois `v5_visit_scheduling.sql`, `v6_service_quotes_and_notifications.sql`, `v7_payment_orders.sql`, `v8_service_cancellation.sql`, `v9_service_execution.sql` e `v10_manual_pix_payouts.sql`. Se o banco já tem a v9 aplicada, execute somente a v10 antes de iniciar o backend.
 
 ### Variáveis obrigatórias
 
@@ -55,6 +55,16 @@ Defina a variável de ambiente:
 ```PowerShell
 $env:APP_JWT_SECRET="CHAVE_GERADA"
 ```
+
+As chaves Pix dos prestadores são criptografadas no banco com AES-GCM. Gere uma chave independente de 32 bytes e mantenha backup seguro; perder ou trocar esse segredo sem recriptografar as chaves impede a leitura dos dados já salvos:
+
+```PowerShell
+$pixKeyBytes = New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($pixKeyBytes)
+$env:APP_PIX_KEY_ENCRYPTION_SECRET = [Convert]::ToBase64String($pixKeyBytes)
+```
+
+Configure `APP_PIX_KEY_ENCRYPTION_SECRET` em todas as instâncias do backend que atendam às APIs Pix. Não reutilize o segredo JWT.
 
 Para testar Checkout Pro Orders, configure um Access Token de teste na sessão do PowerShell em que o backend será iniciado:
 
@@ -135,7 +145,7 @@ No painel de integrações do Mercado Pago, configure as notificações de Order
 
 Após aprovar um orçamento, o cliente usa **Pagar orçamento** na tela de solicitações. O backend cria e persiste uma Order idempotente, vinculada ao orçamento, e o app abre `checkoutUrl`. O retorno usa o deep link configurado, mas não confirma pagamento: a tela consulta o estado local, atualizado após consulta autenticada da Order ao Mercado Pago. Webhooks repetidos consultam o estado atual do Mercado Pago e não repetem transições; pagamentos pendentes também são reconciliados a cada 15 minutos. Pagamentos recusados, expirados ou cancelados podem ser tentados novamente.
 
-`MERCADOPAGO_PAYMENT_RETURN_URL` deve ser ajustada se o esquema/rota do app mudar. Para builds web, configure uma URL HTTPS de retorno compatível com o domínio publicado. O Access Token continua somente no backend. O endpoint administrativo de reembolso integral `POST /payments/{paymentId}/refund` e o cancelamento de Order pendente `POST /payments/{paymentId}/cancel` dependem das permissões da credencial no Mercado Pago; a automação de cancelamento do serviço após pagamento é uma etapa posterior.
+`MERCADOPAGO_PAYMENT_RETURN_URL` deve ser ajustada se o esquema/rota do app mudar. Para builds web, configure uma URL HTTPS de retorno compatível com o domínio publicado. O Access Token continua somente no backend. O endpoint administrativo de reembolso integral `POST /payments/{paymentId}/refund` e o cancelamento de Order pendente `POST /payments/{paymentId}/cancel` dependem das permissões da credencial no Mercado Pago. O cliente pode solicitar cancelamento do serviço após o pagamento, mas somente antes do início da execução, pelo endpoint `POST /payments/{paymentId}/cancel-service`.
 
 Rotas do fluxo integrado:
 
@@ -144,7 +154,22 @@ Rotas do fluxo integrado:
 - `POST /payments/{paymentId}/sync`: consulta a Order diretamente no Mercado Pago antes de atualizar o status local.
 - `POST /payments/{paymentId}/cancel`: cancela uma Order ainda não paga; após o pagamento, a API rejeita o cancelamento.
 - `POST /payments/{paymentId}/refund`: reembolso integral administrativo, restrito a administradores.
+- `POST /payments/{paymentId}/cancel-service`: o cliente solicita cancelamento pré-execução e o backend registra o motivo e solicita o reembolso integral pelo Mercado Pago. Em falhas temporárias, o estado fica pendente e a mesma solicitação pode ser tentada novamente sem duplicar o reembolso.
 - `POST /payments/webhook`: callback público, protegido pela assinatura do Mercado Pago.
+
+O fluxo de execução usa `quoteId` como identificador, no mesmo domínio de histórico usado pelo cancelamento:
+
+- `GET /service-executions` e `GET /service-executions/{quoteId}`: listam e detalham somente os serviços de que o usuário autenticado participa.
+- `POST /service-executions/{quoteId}/start` e `/complete`: ações do prestador; início exige pagamento confirmado e ausência de cancelamento/reembolso.
+- `POST /service-executions/{quoteId}/approve`: aprovação do cliente até 7 dias corridos após a conclusão. A aprovação não executa repasse nesta etapa.
+
+### Repasse manual via Pix
+
+O prestador cadastra/atualiza sua chave em `PUT /provider/pix-key` (`CPF`, `CNPJ`, `EMAIL`, `TELEFONE` ou `ALEATORIA`); `GET /provider/pix-key` retorna somente o tipo e a chave mascarada. O backend valida a chave e a persiste criptografada. Administradores autenticados consultam a fila em `GET /payouts` e os detalhes em `GET /payouts/{payoutId}`; somente o detalhe de um repasse pendente revela a chave completa necessária à transferência.
+
+Uma pendência única por orçamento é criada ao aprovar o serviço ou por uma tarefa que verifica, a cada 15 minutos, o fim da janela de 7 dias sem ação/disputa. Repasse com disputa aberta é bloqueado. A fila não envia dinheiro: o administrador deve primeiro transferir via Pix a partir da conta da plataforma e então chamar `POST /payouts/{payoutId}/paid` com valor efetivamente transferido, identificador único da transação, referência opcional do comprovante e a chave que foi conferida na tela. O valor informado não pode superar o total pago pelo cliente; o sistema não calcula taxa/comissão. O registro repetido não altera nem duplica um repasse já marcado como pago.
+
+O histórico de disputa que bloqueia a fila usa `quoteId` como `entityId` do domínio `DISPUTA`; a implementação da Parte 11 deve manter essa convenção. O bloqueio por disputa e a resolução administrativa completa serão validados novamente quando a Parte 11 for implementada.
 
 ### Configuração de e-mail
 
@@ -204,6 +229,7 @@ v4_lifecycle_status_history.sql
 v5_visit_scheduling.sql
 v6_service_quotes_and_notifications.sql
 v7_payment_orders.sql
+v8_service_cancellation.sql
 ```
 
 Execute apenas as migrations ainda não aplicadas, sempre em ordem, antes de iniciar a aplicação.
