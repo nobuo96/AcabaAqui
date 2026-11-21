@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.acabaaqui.resources.ServiceCatalogResourceTest
 -------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.441 s -- in com.acabaaqui.resources.ServiceCatalogResourceTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.953 s -- in com.acabaaqui.resources.ServiceCatalogResourceTest

@@ -127,8 +127,8 @@ public class ServiceExecutionService {
             return toResponse(execution, true);
         }
         if (locked.payment().getStatus() != PaymentStatus.PAGO
-                || historyRepository.existeStatus(
-                        LifecycleStatusTransitionPolicy.DISPUTA, quoteId, "ABERTA")) {
+                || "ABERTA".equals(historyRepository.buscarUltimoStatus(
+                        LifecycleStatusTransitionPolicy.DISPUTA, quoteId))) {
             throw conflict("Este serviço não pode ser aprovado enquanto o pagamento estiver em disputa ou reembolso.");
         }
         LocalDateTime now = LocalDateTime.now();

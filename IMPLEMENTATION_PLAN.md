@@ -20,8 +20,8 @@ Disputas/evidências e garantia seguem pendentes nas partes seguintes. O status 
 | Pagamento via Pix ou cartão | **Checkout Pro implementado e pagamento de sandbox confirmado manualmente** — cartão/Pix são processados no ambiente Mercado Pago; faltam casos manuais de recusa, reembolso e retorno mobile. | `ServicePaymentService.java`; `MercadoPagoOrdersHttpGateway.java`; `v7_payment_orders.sql`; `payment-return.tsx` |
 | Pagamento recebido pela plataforma e liberado ao prestador somente após aprovação do cliente | **Parcial** — cobrança e confirmação estão integradas; as Partes 9–10 criam e registram repasse manual, ainda aguardando migration v10 e teste operacional. | `ServicePaymentService.java`; `ServicePayoutService.java`; `v7_payment_orders.sql`; `v10_manual_pix_payouts.sql` |
 | Cliente aprova a execução e isso inicia o pagamento do prestador | **Parcial** — execução/aprovação testadas; a pendência de Pix manual está implementada e aguarda validação operacional. | `ServiceExecutionService.java`; `ServicePayoutService.java`; `ServiceExecutionsScreen.tsx` |
-| Lista de serviços com status e prazos, detalhe e ações para contestar/liberar pagamento | **Parcial** — lista/detalhe, prazo e aprovação implementados na Parte 9; repasse manual disponível na Parte 10; contestação e resolução de disputa continuam na Parte 11. | `ServiceExecutionsScreen.tsx`; `ServicePayoutService.java`; `IMPLEMENTATION_PLAN.md` |
-| Disputa, evidências e reembolso ao cliente quando aplicável | **Não implementado** — não há estados de disputa, armazenamento de evidências, painel/decisão administrativa ou reembolso. | Fontes e migrations do backend; telas administrativas existentes |
+| Lista de serviços com status e prazos, detalhe e ações para contestar/liberar pagamento | **Implementado** — cliente abre disputa antes da aprovação; ambas as partes anexam evidências; decisão administrativa libera o reembolso ou repasse. | `ServiceExecutionsScreen.tsx`; `ServiceDisputeService.java`; `AdminDisputesScreen.tsx` |
+| Disputa, evidências e reembolso ao cliente quando aplicável | **Implementado; migration v11 e teste manual pendentes** — armazenamento privado, prazos, fila administrativa, decisões e notificações. | `ServiceDisputeService.java`; `v11_service_disputes.sql`; `AdminDisputesScreen.tsx` |
 | Chamado de garantia, prazo para correção e encerramento como resolvido | **Não implementado** — não há fluxo ou configuração de garantia. | Fontes e migrations do backend; README |
 
 ### Comportamento existente relevante
@@ -259,12 +259,14 @@ As partes abaixo são entregas verticais pequenas, cada uma com escopo limitado 
 
 **Depende de:** Partes 9 e 10, e política de evidências da Parte 0.
 
-- Permitir abrir disputa somente após início do serviço e antes da aprovação.
-- Permitir às duas partes anexar imagens/documentos por 7 dias corridos; rejeitar vídeos e arquivos fora dos limites definidos.
-- Criar fila/detalhe administrativo e registrar uma das decisões: reembolsar cliente ou pagar prestador.
-- Suspender repasse enquanto a disputa estiver aberta e notificar as partes no app.
+- **Status:** implementação pronta; migration v11 e validação manual pelo usuário pendentes.
+- Disputa única por orçamento, aberta pelo cliente após o início e antes da aprovação; a execução muda para `CONTESTADA` e o histórico `DISPUTA` conserva `quoteId` como `entityId`.
+- Cliente e prestador podem anexar até 10 arquivos cada durante 7 dias corridos após abertura; são permitidos JPG/PNG/PDF até 10 MB por arquivo. O backend valida assinatura do arquivo, tipo e tamanho.
+- Evidências ficam em BLOB privado no banco, só podem ser baixadas pelas partes/admin e são excluídas diariamente após 180 dias do encerramento. Ausência de evidência não produz decisão automática.
+- Fila/detalhe administrativo registra justificativa e decisão. Reembolso usa a integração Mercado Pago e mantém a disputa aberta até a confirmação integral; uma pendência de repasse existente é cancelada após a confirmação. Decisão por repasse aprova a execução e cria/libera a pendência manual.
+- A abertura e o encerramento notificam as duas partes no app; repasses usam o estado mais recente da disputa e permanecem bloqueados enquanto ela estiver aberta.
 
-**Teste/aceite:** testes cobrem janela de abertura/anexos, autorização, tipos/tamanhos, ambos os resultados e garantia de que nenhum repasse ocorre durante disputa aberta.
+**Teste/aceite:** testes de política e transições passam; o usuário deve aplicar v11 e validar abertura autorizada, anexos privados por ambas as partes, limites, fila, decisões, notificações e bloqueio/liberação do repasse.
 
 ### Parte 12 — Garantia
 

@@ -132,11 +132,51 @@ export interface ServiceExecution {
   history: ServiceExecutionHistory[];
 }
 
+export interface ServiceDisputeEvidence {
+  id: number;
+  uploaderId: number;
+  uploaderName: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export interface ServiceDispute {
+  id: number;
+  quoteId: number;
+  serviceName: string;
+  clientId: number;
+  clientName: string;
+  providerId: number;
+  providerName: string;
+  reason: string;
+  status: 'ABERTA' | 'ENCERRADA_REEMBOLSO' | 'ENCERRADA_REPASSE';
+  openedAt: string;
+  evidenceDeadline: string;
+  decision: 'REEMBOLSAR_CLIENTE' | 'PAGAR_PRESTADOR' | null;
+  decisionReason: string | null;
+  administratorName: string | null;
+  closedAt: string | null;
+  paymentStatus: ServicePayment['status'] | null;
+  evidence: ServiceDisputeEvidence[];
+}
+
+export type ServiceDisputeDecision = NonNullable<ServiceDispute['decision']>;
+
 async function request<T>(path: string, method = 'GET', body?: object): Promise<T> {
   const response = await apiFetch(path, {
     method,
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
+  await checkResponse(response);
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return response.json() as Promise<T>;
+}
+
+async function checkResponse(response: Response) {
   if (!response.ok) {
     const text = await response.text();
     let message = text;
@@ -151,10 +191,6 @@ async function request<T>(path: string, method = 'GET', body?: object): Promise<
     }
     throw new Error(message || `Falha na solicitação (${response.status}).`);
   }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return response.json() as Promise<T>;
 }
 
 export const communicationApi = {
@@ -228,6 +264,34 @@ export const serviceExecutionApi = {
     request<ServiceExecution>(`/service-executions/${quoteId}/approve`, 'POST'),
 };
 
+export const serviceDisputeApi = {
+  list: () => request<ServiceDispute[]>('/disputes'),
+  get: (disputeId: number) => request<ServiceDispute>(`/disputes/${disputeId}`),
+  getForQuote: async (quoteId: number) => {
+    const response = await apiFetch(`/disputes/quotes/${quoteId}`);
+    if (response.status === 204) return null;
+    await checkResponse(response);
+    return response.json() as Promise<ServiceDispute>;
+  },
+  open: (quoteId: number, reason: string) =>
+    request<ServiceDispute>(`/disputes/quotes/${quoteId}`, 'POST', { reason }),
+  uploadEvidence: async (disputeId: number, formData: FormData) => {
+    const response = await apiFetch(`/disputes/${disputeId}/evidence`, {
+      method: 'POST',
+      body: formData,
+    });
+    await checkResponse(response);
+    return response.json() as Promise<ServiceDisputeEvidence>;
+  },
+  decide: (disputeId: number, decision: NonNullable<ServiceDispute['decision']>, reason: string) =>
+    request<ServiceDispute>(`/disputes/${disputeId}/decision`, 'POST', { decision, reason }),
+  downloadEvidence: async (disputeId: number, evidenceId: number) => {
+    const response = await apiFetch(`/disputes/${disputeId}/evidence/${evidenceId}`);
+    await checkResponse(response);
+    return response.blob();
+  },
+};
+
 export type PixKeyType = 'CPF' | 'CNPJ' | 'EMAIL' | 'TELEFONE' | 'ALEATORIA';
 
 export interface ProviderPixKey {
@@ -245,7 +309,7 @@ export interface ServicePayout {
   providerName: string;
   paymentAmount: number | null;
   paymentStatus: ServicePayment['status'] | null;
-  status: 'PENDENTE' | 'PAGO';
+  status: 'PENDENTE' | 'PAGO' | 'CANCELADO';
   reason: 'APROVACAO_CLIENTE' | 'PRAZO_EXPIRADO';
   eligibleAt: string;
   approvalDeadline: string | null;

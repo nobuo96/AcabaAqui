@@ -100,9 +100,11 @@ public final class LifecycleStatusTransitionPolicy {
         allow(transitions, EXECUCAO, null, "AGUARDANDO_INICIO", SISTEMA);
         allow(transitions, EXECUCAO, "AGUARDANDO_INICIO", "EM_ANDAMENTO", PRESTADOR);
         allow(transitions, EXECUCAO, "AGUARDANDO_INICIO", "CANCELADA", CLIENTE);
+        allow(transitions, EXECUCAO, "EM_ANDAMENTO", "CONTESTADA", CLIENTE);
         allow(transitions, EXECUCAO, "EM_ANDAMENTO", "CONCLUIDA_PELO_PRESTADOR", PRESTADOR);
         allow(transitions, EXECUCAO, "CONCLUIDA_PELO_PRESTADOR", "APROVADA", CLIENTE, SISTEMA);
         allow(transitions, EXECUCAO, "CONCLUIDA_PELO_PRESTADOR", "CONTESTADA", CLIENTE);
+        allow(transitions, EXECUCAO, "CONTESTADA", "APROVADA", ADMINISTRADOR);
 
         allow(transitions, DISPUTA, null, "ABERTA", CLIENTE);
         allow(transitions, DISPUTA, "ABERTA", "ENCERRADA_REEMBOLSO", ADMINISTRADOR);

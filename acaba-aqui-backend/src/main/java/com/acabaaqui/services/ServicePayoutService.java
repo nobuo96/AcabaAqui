@@ -218,6 +218,20 @@ public class ServicePayoutService {
         return enfileirarSeElegivel(quoteId, now);
     }
 
+    @Transactional
+    public boolean existeRepassePendente(Long quoteId) {
+        ServicePayout payout = payoutRepository.buscarPorOrcamento(quoteId);
+        return payout != null && payout.getStatus() == ServicePayoutStatus.PENDENTE;
+    }
+
+    @Transactional
+    public void cancelarRepassePendenteAposReembolso(Long quoteId) {
+        ServicePayout payout = payoutRepository.buscarPorOrcamentoComBloqueio(quoteId);
+        if (payout != null && payout.getStatus() == ServicePayoutStatus.PENDENTE) {
+            payout.setStatus(ServicePayoutStatus.CANCELADO);
+        }
+    }
+
     private boolean enfileirarSeElegivel(Long quoteId, LocalDateTime now) {
         Long requestId = quoteRepository.buscarSolicitacaoId(quoteId);
         if (requestId == null) {
@@ -267,8 +281,8 @@ public class ServicePayoutService {
     }
 
     private boolean existeDisputaAberta(Long quoteId) {
-        return historyRepository.existeStatus(
-                LifecycleStatusTransitionPolicy.DISPUTA, quoteId, "ABERTA");
+        return "ABERTA".equals(historyRepository.buscarUltimoStatus(
+                LifecycleStatusTransitionPolicy.DISPUTA, quoteId));
     }
 
     private PixKeyResponse toPixKeyResponse(ProviderPixKey pixKey) {

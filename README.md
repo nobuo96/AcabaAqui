@@ -36,7 +36,7 @@ FLUSH PRIVILEGES;
 
 ## Configuração do Backend
 
-As alterações do banco são aplicadas por migrations SQL incrementais em `acaba-aqui-backend/src/main/resources/db/migration`; o Hibernate não cria/atualiza o schema automaticamente. Aplique manualmente `v4_lifecycle_status_history.sql` após `v1`–`v3`, depois `v5_visit_scheduling.sql`, `v6_service_quotes_and_notifications.sql`, `v7_payment_orders.sql`, `v8_service_cancellation.sql`, `v9_service_execution.sql` e `v10_manual_pix_payouts.sql`. Se o banco já tem a v9 aplicada, execute somente a v10 antes de iniciar o backend.
+As alterações do banco são aplicadas por migrations SQL incrementais em `acaba-aqui-backend/src/main/resources/db/migration`; o Hibernate não cria/atualiza o schema automaticamente. Aplique manualmente `v4_lifecycle_status_history.sql` após `v1`–`v3`, depois `v5_visit_scheduling.sql`, `v6_service_quotes_and_notifications.sql`, `v7_payment_orders.sql`, `v8_service_cancellation.sql`, `v9_service_execution.sql`, `v10_manual_pix_payouts.sql` e `v11_service_disputes.sql`. Se o banco já tem a v10 aplicada, execute somente a v11 antes de iniciar o backend.
 
 ### Variáveis obrigatórias
 
@@ -161,7 +161,7 @@ O fluxo de execução usa `quoteId` como identificador, no mesmo domínio de his
 
 - `GET /service-executions` e `GET /service-executions/{quoteId}`: listam e detalham somente os serviços de que o usuário autenticado participa.
 - `POST /service-executions/{quoteId}/start` e `/complete`: ações do prestador; início exige pagamento confirmado e ausência de cancelamento/reembolso.
-- `POST /service-executions/{quoteId}/approve`: aprovação do cliente até 7 dias corridos após a conclusão. A aprovação não executa repasse nesta etapa.
+- `POST /service-executions/{quoteId}/approve`: aprovação do cliente até 7 dias corridos após a conclusão. A aprovação habilita a fila de repasse manual.
 
 ### Repasse manual via Pix
 
@@ -169,7 +169,17 @@ O prestador cadastra/atualiza sua chave em `PUT /provider/pix-key` (`CPF`, `CNPJ
 
 Uma pendência única por orçamento é criada ao aprovar o serviço ou por uma tarefa que verifica, a cada 15 minutos, o fim da janela de 7 dias sem ação/disputa. Repasse com disputa aberta é bloqueado. A fila não envia dinheiro: o administrador deve primeiro transferir via Pix a partir da conta da plataforma e então chamar `POST /payouts/{payoutId}/paid` com valor efetivamente transferido, identificador único da transação, referência opcional do comprovante e a chave que foi conferida na tela. O valor informado não pode superar o total pago pelo cliente; o sistema não calcula taxa/comissão. O registro repetido não altera nem duplica um repasse já marcado como pago.
 
-O histórico de disputa que bloqueia a fila usa `quoteId` como `entityId` do domínio `DISPUTA`; a implementação da Parte 11 deve manter essa convenção. O bloqueio por disputa e a resolução administrativa completa serão validados novamente quando a Parte 11 for implementada.
+### Disputas e evidências
+
+Após o prestador iniciar o serviço, e antes da aprovação pelo cliente, o cliente pode abrir uma disputa em `POST /disputes/quotes/{quoteId}` com um motivo. A abertura muda a execução para contestada e bloqueia o repasse até uma decisão administrativa. O histórico do domínio `DISPUTA` usa `quoteId` como `entityId`.
+
+Cliente e prestador podem anexar até 10 arquivos cada durante os 7 dias corridos após a abertura. São aceitos somente JPG, PNG e PDF de até 10 MB por arquivo; o backend verifica extensão, MIME type e assinatura do conteúdo. O conteúdo é armazenado como BLOB privado no banco, e o download exige autenticação e participação no serviço (ou perfil administrador). Após o encerramento, uma tarefa diária remove os arquivos ao completar 180 dias. Disputas sem evidências não são decididas automaticamente.
+
+Rotas para as partes: `GET /disputes/quotes/{quoteId}` consulta a disputa; `POST /disputes/{disputeId}/evidence` recebe um arquivo multipart no campo `file`; `GET /disputes/{disputeId}/evidence` lista os metadados; `GET /disputes/{disputeId}/evidence/{evidenceId}` baixa o arquivo após verificar participação.
+
+Administradores usam `GET /disputes` e `GET /disputes/{disputeId}` para revisar o relato e as evidências; `POST /disputes/{disputeId}/decision` exige a decisão (`REEMBOLSAR_CLIENTE` ou `PAGAR_PRESTADOR`) e uma justificativa. Reembolso usa o Mercado Pago; liberar o prestador aprova o serviço e cria/libera a pendência de repasse. Se o Mercado Pago deixar o reembolso pendente, a disputa continua aberta e o administrador pode tentar novamente; ela só é encerrada após a confirmação integral. Uma pendência de repasse existente é cancelada após a confirmação do reembolso. Notificações internas são enviadas a ambas as partes ao abrir, ao iniciar o reembolso e ao encerrar a disputa.
+
+As tabelas de disputa/evidência são criadas por `acaba-aqui-backend/src/main/resources/db/migration/v11_service_disputes.sql`, que deve ser aplicada manualmente após v10.
 
 ### Configuração de e-mail
 
@@ -230,6 +240,9 @@ v5_visit_scheduling.sql
 v6_service_quotes_and_notifications.sql
 v7_payment_orders.sql
 v8_service_cancellation.sql
+v9_service_execution.sql
+v10_manual_pix_payouts.sql
+v11_service_disputes.sql
 ```
 
 Execute apenas as migrations ainda não aplicadas, sempre em ordem, antes de iniciar a aplicação.
@@ -610,6 +623,6 @@ Prestadores enviam orçamento.
 Cliente escolhe o orçamento.
 Cliente realiza o pagamento.
 Serviço é executado.
-Cliente aprova a conclusão.
+Cliente aprova a conclusão ou abre uma disputa.
 
-As etapas de garantia, avaliação, disputa e retenção financeira serão implementadas nas próximas versões.
+As etapas de garantia e avaliação serão implementadas nas próximas versões.

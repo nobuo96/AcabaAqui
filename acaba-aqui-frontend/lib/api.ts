@@ -9,7 +9,11 @@ export const API_BASE_URL = configuredApiUrl ?? (Platform.OS === 'android'
 
 export async function apiFetch(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
-  headers.set('Content-Type', 'application/json');
+  if (typeof FormData !== 'undefined' && init.body instanceof FormData) {
+    headers.delete('Content-Type');
+  } else {
+    headers.set('Content-Type', 'application/json');
+  }
   const normalizedPath = path.replace(/^\/+|\/+$/g, '');
   const isPublicAuthRequest = (init.method ?? 'GET').toUpperCase() === 'POST'
     && ['auth/login', 'auth/email-verification/request', 'auth/email-verification/resend',

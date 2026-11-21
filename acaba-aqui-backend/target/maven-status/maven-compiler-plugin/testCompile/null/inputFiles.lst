@@ -1,4 +1,5 @@
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\resources\ServiceCatalogResourceTest.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\resources\ServiceDisputeResourceTest.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\AddressServiceTest.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\AuthServiceTokenVersionTest.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\ChangePasswordServiceTest.java
@@ -11,6 +12,7 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\servi
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\RequestOpportunityServiceTest.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\ServiceCancellationPolicyTest.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\ServiceCatalogServiceTest.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\ServiceDisputePolicyTest.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\ServiceExecutionPolicyTest.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\ServicePayoutPolicyTest.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\test\java\com\acabaaqui\services\ServiceQuoteServiceTest.java

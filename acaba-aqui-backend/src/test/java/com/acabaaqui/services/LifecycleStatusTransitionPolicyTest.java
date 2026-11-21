@@ -91,6 +91,16 @@ class LifecycleStatusTransitionPolicyTest {
                 LifecycleStatusTransitionPolicy.PRESTADOR));
         assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
                 LifecycleStatusTransitionPolicy.EXECUCAO,
+                "EM_ANDAMENTO",
+                "CONTESTADA",
+                LifecycleStatusTransitionPolicy.CLIENTE));
+        assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
+                LifecycleStatusTransitionPolicy.EXECUCAO,
+                "CONTESTADA",
+                "APROVADA",
+                LifecycleStatusTransitionPolicy.ADMINISTRADOR));
+        assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
+                LifecycleStatusTransitionPolicy.EXECUCAO,
                 "AGUARDANDO_INICIO",
                 "CANCELADA",
                 LifecycleStatusTransitionPolicy.CLIENTE));
@@ -98,6 +108,11 @@ class LifecycleStatusTransitionPolicyTest {
                 LifecycleStatusTransitionPolicy.DISPUTA,
                 "ABERTA",
                 "ENCERRADA_REEMBOLSO",
+                LifecycleStatusTransitionPolicy.ADMINISTRADOR));
+        assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
+                LifecycleStatusTransitionPolicy.DISPUTA,
+                "ABERTA",
+                "ENCERRADA_REPASSE",
                 LifecycleStatusTransitionPolicy.ADMINISTRADOR));
         assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
                 LifecycleStatusTransitionPolicy.GARANTIA,

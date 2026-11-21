@@ -1,20 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.acabaaqui.services.UserServicePersonalInfoTest
 -------------------------------------------------------------------------------
-Tests run: 3, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.051 s <<< FAILURE! -- in com.acabaaqui.services.UserServicePersonalInfoTest
-com.acabaaqui.services.UserServicePersonalInfoTest.rejectsFutureBirthDate -- Time elapsed: 0.028 s <<< FAILURE!
-org.opentest4j.AssertionFailedError: Unexpected exception type thrown, expected: <java.lang.IllegalArgumentException> but was: <java.lang.NullPointerException>
-	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
-	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:67)
-	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:35)
-	at org.junit.jupiter.api.Assertions.assertThrows(Assertions.java:3115)
-	at com.acabaaqui.services.UserServicePersonalInfoTest.rejectsFutureBirthDate(UserServicePersonalInfoTest.java:48)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-Caused by: java.lang.NullPointerException: Cannot invoke "com.acabaaqui.persistence.UserRepository.buscarUsuarioPorId(java.lang.Integer)" because "this.repository" is null
-	at com.acabaaqui.services.UserService.atualizarDadosPessoais(UserService.java:52)
-	at com.acabaaqui.services.UserServicePersonalInfoTest.lambda$rejectsFutureBirthDate$0(UserServicePersonalInfoTest.java:48)
-	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:53)
-	... 6 more
-
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.acabaaqui.services.UserServicePersonalInfoTest

@@ -241,14 +241,16 @@ public class ServicePaymentService {
             return toResponse(payment);
         }
         if (payment.getStatus() != PaymentStatus.PAGO
+                && payment.getStatus() != PaymentStatus.REPASSE_PENDENTE
                 && payment.getStatus() != PaymentStatus.REEMBOLSO_PENDENTE) {
-            throw conflict("Somente pagamentos confirmados podem ser reembolsados.");
+            throw conflict("Somente pagamentos confirmados e ainda não reembolsados podem ser reembolsados.");
         }
         if (payment.getMercadoPagoOrderId() == null) {
             throw conflict("O pedido do Mercado Pago não está disponível para reembolso.");
         }
 
-        if (payment.getStatus() == PaymentStatus.PAGO) {
+        if (payment.getStatus() == PaymentStatus.PAGO
+                || payment.getStatus() == PaymentStatus.REPASSE_PENDENTE) {
             alterarStatus(payment, PaymentStatus.REEMBOLSO_PENDENTE,
                     LifecycleStatusTransitionPolicy.ADMINISTRADOR, buscarUsuario(adminId));
         }

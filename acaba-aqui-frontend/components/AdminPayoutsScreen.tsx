@@ -107,8 +107,12 @@ export function AdminPayoutsScreen() {
           <View key={payout.id} style={styles.card}>
             <View style={styles.heading}>
               <Text style={styles.title}>{payout.serviceName}</Text>
-              <Text style={[styles.badge, payout.status === 'PAGO' && styles.paidBadge]}>
-                {payout.status === 'PAGO' ? 'Pago' : 'Pendente'}
+              <Text style={[
+                styles.badge,
+                payout.status === 'PAGO' && styles.paidBadge,
+                payout.status === 'CANCELADO' && styles.canceledBadge,
+              ]}>
+                {payout.status === 'PAGO' ? 'Pago' : payout.status === 'CANCELADO' ? 'Cancelado' : 'Pendente'}
               </Text>
             </View>
             <Text style={styles.line}>Prestador: {payout.providerName}</Text>
@@ -193,6 +197,8 @@ function PayoutDetails({
           {payout.paidAt ? <Text style={styles.line}>Registrado em: {formatDate(payout.paidAt)}</Text> : null}
           {payout.administratorName ? <Text style={styles.line}>Administrador: {payout.administratorName}</Text> : null}
         </>
+      ) : payout.status === 'CANCELADO' ? (
+        <Text style={styles.warning}>Este repasse foi cancelado após a confirmação do reembolso ao cliente.</Text>
       ) : (
         <>
           <Text style={styles.label}>Valor transferido (máximo {formatCurrency(payout.paymentAmount)}):</Text>
@@ -281,6 +287,7 @@ const styles = StyleSheet.create({
   title: { color: '#222', fontSize: 17, fontWeight: '700', flexShrink: 1 },
   badge: { color: '#854c00', backgroundColor: '#fff0d6', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4, fontSize: 12, fontWeight: '700' },
   paidBadge: { color: '#246b31', backgroundColor: '#e5f4e8' },
+  canceledBadge: { color: '#555', backgroundColor: '#eee' },
   line: { color: '#4a4a4a', fontSize: 14 },
   detailButton: { alignSelf: 'flex-start', paddingVertical: 6 },
   detailButtonText: { color: '#a43434', fontWeight: '700' },

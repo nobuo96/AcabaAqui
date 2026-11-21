@@ -1,15 +1,21 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
 import { InAppNotificationInbox } from '@/components/InAppNotificationInbox';
 import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
 import {
+  serviceDisputeApi,
   serviceExecutionApi,
+  type ServiceDispute,
+  type ServiceDisputeEvidence,
   type ServiceExecution,
 } from '@/lib/communicationApi';
+import { getAuthUserId } from '@/lib/authToken';
+import { openDisputeEvidence } from '@/lib/openDisputeEvidence';
 
 interface Props {
   role: 'cliente' | 'prestador';
@@ -18,6 +24,11 @@ interface Props {
 export function ServiceExecutionsScreen({ role }: Props) {
   const [executions, setExecutions] = useState<ServiceExecution[]>([]);
   const [selected, setSelected] = useState<ServiceExecution | null>(null);
+  const [dispute, setDispute] = useState<ServiceDispute | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeWorking, setDisputeWorking] = useState(false);
+  const [evidenceWorking, setEvidenceWorking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [workingId, setWorkingId] = useState<number | null>(null);
@@ -39,19 +50,86 @@ export function ServiceExecutionsScreen({ role }: Props) {
     void load();
   }, [load]));
 
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void getAuthUserId().then((id) => {
+      if (active) setUserId(id);
+    });
+    return () => { active = false; };
+  }, []));
+
   async function toggleDetails(quoteId: number) {
     if (selected?.quoteId === quoteId) {
       setSelected(null);
+      setDispute(null);
       return;
     }
     setLoadingDetail(true);
     setError('');
     try {
-      setSelected(await serviceExecutionApi.get(quoteId));
+      const [execution, currentDispute] = await Promise.all([
+        serviceExecutionApi.get(quoteId),
+        serviceDisputeApi.getForQuote(quoteId),
+      ]);
+      setSelected(execution);
+      setDispute(currentDispute);
+      setDisputeReason('');
     } catch (detailError) {
       setError(detailError instanceof Error ? detailError.message : 'Não foi possível carregar os detalhes.');
     } finally {
       setLoadingDetail(false);
+    }
+  }
+
+  async function openDispute(execution: ServiceExecution) {
+    if (disputeWorking || !disputeReason.trim()) {
+      setError('Descreva o motivo da contestação.');
+      return;
+    }
+    setDisputeWorking(true);
+    setError('');
+    try {
+      const created = await serviceDisputeApi.open(execution.quoteId, disputeReason.trim());
+      setDispute(created);
+      setDisputeReason('');
+      setSelected(await serviceExecutionApi.get(execution.quoteId));
+      await load();
+    } catch (openError) {
+      setError(openError instanceof Error ? openError.message : 'Não foi possível abrir a disputa.');
+    } finally {
+      setDisputeWorking(false);
+    }
+  }
+
+  async function attachEvidence(currentDispute: ServiceDispute) {
+    if (evidenceWorking) return;
+    setEvidenceWorking(true);
+    setError('');
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png', 'application/pdf'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (asset.size !== undefined && asset.size > 10 * 1024 * 1024) {
+        throw new Error('Cada evidência pode ter no máximo 10 MB.');
+      }
+      const fileResponse = await fetch(asset.uri);
+      const blob = await fileResponse.blob();
+      const contentType = evidenceContentType(asset.name);
+      if (!contentType) {
+        throw new Error('Formato não permitido. Envie JPG, PNG ou PDF.');
+      }
+      const formData = new FormData();
+      formData.append('file', blob.slice(0, blob.size, contentType), asset.name);
+      await serviceDisputeApi.uploadEvidence(currentDispute.id, formData);
+      setDispute(await serviceDisputeApi.get(currentDispute.id));
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Não foi possível anexar a evidência.');
+    } finally {
+      setEvidenceWorking(false);
     }
   }
 
@@ -145,7 +223,25 @@ export function ServiceExecutionsScreen({ role }: Props) {
               </Text>
             </Pressable>
             {selected?.quoteId === execution.quoteId ? (
-              <ExecutionDetails execution={selected} role={role} />
+              <ExecutionDetails
+                execution={selected}
+                role={role}
+                dispute={dispute}
+                userId={userId}
+                disputeReason={disputeReason}
+                disputeWorking={disputeWorking}
+                evidenceWorking={evidenceWorking}
+                onDisputeReasonChange={setDisputeReason}
+                onOpenDispute={() => { void openDispute(execution); }}
+                onAttachEvidence={() => { if (dispute) void attachEvidence(dispute); }}
+                onOpenEvidence={(evidence) => {
+                  if (dispute) {
+                    void openDisputeEvidence(dispute.id, evidence).catch((openError: unknown) => {
+                      setError(openError instanceof Error ? openError.message : 'Não foi possível abrir a evidência.');
+                    });
+                  }
+                }}
+              />
             ) : null}
             {role === 'prestador' && execution.status === 'AGUARDANDO_INICIO'
               && execution.paymentStatus === 'PAGO' ? (
@@ -176,7 +272,51 @@ export function ServiceExecutionsScreen({ role }: Props) {
   );
 }
 
-function ExecutionDetails({ execution, role }: Props & { execution: ServiceExecution }) {
+function evidenceContentType(filename: string) {
+  const extension = filename.split('.').pop()?.toLowerCase();
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'png') return 'image/png';
+  if (extension === 'pdf') return 'application/pdf';
+  return null;
+}
+
+function ExecutionDetails({
+  execution,
+  role,
+  dispute,
+  userId,
+  disputeReason,
+  disputeWorking,
+  evidenceWorking,
+  onDisputeReasonChange,
+  onOpenDispute,
+  onAttachEvidence,
+  onOpenEvidence,
+}: Props & {
+  execution: ServiceExecution;
+  dispute: ServiceDispute | null;
+  userId: string | null;
+  disputeReason: string;
+  disputeWorking: boolean;
+  evidenceWorking: boolean;
+  onDisputeReasonChange: (value: string) => void;
+  onOpenDispute: () => void;
+  onAttachEvidence: () => void;
+  onOpenEvidence: (evidence: ServiceDisputeEvidence) => void;
+}) {
+  const canOpenDispute = role === 'cliente'
+    && (execution.status === 'EM_ANDAMENTO' || execution.status === 'CONCLUIDA_PELO_PRESTADOR')
+    && execution.startedAt !== null
+    && execution.approvedAt === null
+    && dispute === null;
+  const ownEvidenceCount = dispute?.evidence.filter(
+    (item) => String(item.uploaderId) === userId,
+  ).length ?? 0;
+  const canUploadEvidence = dispute?.status === 'ABERTA'
+    && dispute.evidenceDeadline !== null
+    && Date.now() <= new Date(dispute.evidenceDeadline).getTime()
+    && ownEvidenceCount < 10;
+
   return (
     <View style={styles.details}>
       <Text style={styles.description}>{execution.description}</Text>
@@ -187,14 +327,69 @@ function ExecutionDetails({ execution, role }: Props & { execution: ServiceExecu
           <Text style={styles.deadline}>
             Aprovação até: {formatDate(execution.approveBy)}
           </Text>
-          {role === 'cliente' ? (
-            <Text style={styles.muted}>
-              O prazo é de 7 dias corridos. A contestação pelo aplicativo será implementada na próxima etapa.
-            </Text>
-          ) : null}
         </>
       ) : null}
       {execution.approvedAt ? <Text style={styles.detail}>Aprovado: {formatDate(execution.approvedAt)}</Text> : null}
+      {canOpenDispute ? (
+        <View style={styles.disputeBox}>
+          <Text style={styles.historyHeading}>Contestar serviço</Text>
+          <Text style={styles.muted}>Após abrir a disputa, ambas as partes terão 7 dias corridos para anexar até 10 arquivos JPG, PNG ou PDF (máximo 10 MB cada).</Text>
+          <TextInput
+            style={[styles.input, styles.multilineInput]}
+            value={disputeReason}
+            onChangeText={onDisputeReasonChange}
+            maxLength={1000}
+            multiline
+            textAlignVertical="top"
+            placeholder="Explique o motivo da contestação"
+          />
+          <ActionButton
+            label={disputeWorking ? 'Abrindo disputa...' : 'Abrir disputa'}
+            disabled={disputeWorking || !disputeReason.trim()}
+            onPress={onOpenDispute}
+          />
+        </View>
+      ) : null}
+      {dispute ? (
+        <View style={styles.disputeBox}>
+          <Text style={styles.historyHeading}>Disputa: {disputeStatusLabel(dispute.status)}</Text>
+          <Text style={styles.detail}>Motivo: {dispute.reason}</Text>
+          {dispute.status === 'ABERTA' ? (
+            <>
+              <Text style={styles.deadline}>Evidências até: {formatDate(dispute.evidenceDeadline)}</Text>
+              {dispute.paymentStatus === 'REEMBOLSO_PENDENTE' ? (
+                <Text style={styles.paymentWarning}>
+                  O reembolso solicitado está em processamento no Mercado Pago; a disputa continua aberta.
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Text style={styles.detail}>Decisão: {disputeDecisionLabel(dispute.decision)}</Text>
+              {dispute.decisionReason ? <Text style={styles.detail}>Justificativa: {dispute.decisionReason}</Text> : null}
+            </>
+          )}
+          {dispute.evidence.map((evidence) => (
+            <Pressable key={evidence.id} onPress={() => onOpenEvidence(evidence)} style={styles.evidenceRow}>
+              <Text style={styles.evidenceName}>{evidence.filename}</Text>
+              <Text style={styles.muted}>
+                {evidence.uploaderName} · {(evidence.sizeBytes / 1024 / 1024).toFixed(2)} MB · Abrir
+              </Text>
+            </Pressable>
+          ))}
+          {canUploadEvidence ? (
+            <ActionButton
+              label={evidenceWorking ? 'Anexando...' : `Anexar evidência (${ownEvidenceCount}/10)`}
+              disabled={evidenceWorking}
+              onPress={onAttachEvidence}
+            />
+          ) : dispute.status === 'ABERTA' ? (
+            <Text style={styles.muted}>
+              {ownEvidenceCount >= 10 ? 'Você já anexou o limite de 10 arquivos.' : 'O prazo para anexar evidências foi encerrado.'}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
       <Text style={styles.historyHeading}>Histórico</Text>
       {execution.history.map((item, index) => (
         <Text key={`${item.status}-${item.occurredAt}-${index}`} style={styles.historyItem}>
@@ -254,6 +449,18 @@ function paymentStatusLabel(status: string) {
   }
 }
 
+function disputeStatusLabel(status: ServiceDispute['status']) {
+  switch (status) {
+    case 'ABERTA': return 'em análise';
+    case 'ENCERRADA_REEMBOLSO': return 'encerrada com reembolso ao cliente';
+    case 'ENCERRADA_REPASSE': return 'encerrada com repasse ao prestador';
+  }
+}
+
+function disputeDecisionLabel(decision: ServiceDispute['decision']) {
+  return decision === 'REEMBOLSAR_CLIENTE' ? 'Reembolsar cliente' : 'Pagar prestador';
+}
+
 function formatDate(value: string) {
   return new Date(value).toLocaleString('pt-BR');
 }
@@ -273,6 +480,11 @@ const styles = StyleSheet.create({
   detailButton: { alignSelf: 'flex-start', paddingVertical: 6 },
   detailButtonText: { color: '#a43434', fontWeight: '600' },
   details: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 10, gap: 8 },
+  disputeBox: { backgroundColor: '#faf5f5', borderRadius: 9, padding: 12, gap: 8 },
+  evidenceRow: { backgroundColor: '#fff', borderRadius: 8, padding: 10, gap: 4 },
+  evidenceName: { color: '#a43434', fontSize: 14, fontWeight: '700' },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, color: '#222', backgroundColor: '#fff' },
+  multilineInput: { minHeight: 75 },
   description: { color: '#414141', fontSize: 14, lineHeight: 20 },
   deadline: { color: '#854c00', fontSize: 14, fontWeight: '700' },
   historyHeading: { color: '#282828', fontSize: 15, fontWeight: '700', marginTop: 4 },

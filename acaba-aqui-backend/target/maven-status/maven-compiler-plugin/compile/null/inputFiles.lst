@@ -18,6 +18,10 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceCancellationStatus.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceCatalogItem.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceCategory.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceDispute.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceDisputeDecision.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceDisputeEvidence.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceDisputeStatus.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceExecution.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServiceExecutionStatus.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\model\ServicePayment.java
@@ -49,6 +53,7 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persi
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServiceCancellationRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServiceCatalogRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServiceCategoryRepository.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServiceDisputeRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServiceExecutionRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServicePaymentOrderAttemptRepository.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\persistence\ServicePaymentRepository.java
@@ -69,6 +74,7 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resou
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ProviderServicesResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\RequestOpportunityResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ServiceCatalogResource.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ServiceDisputeResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ServiceExecutionResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ServicePaymentResource.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\resources\ServicePayoutResource.java
@@ -100,6 +106,9 @@ C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\servi
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\RequestOpportunityService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceCancellationPolicy.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceCatalogService.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceDisputeEvidenceCleanupJob.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceDisputePolicy.java
+C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceDisputeService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceExecutionPolicy.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServiceExecutionService.java
 C:\Users\Acer\dev\AcabaAqui\acaba-aqui-backend\src\main\java\com\acabaaqui\services\ServicePaymentService.java

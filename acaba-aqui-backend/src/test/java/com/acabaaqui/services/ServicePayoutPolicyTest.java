@@ -68,6 +68,13 @@ class ServicePayoutPolicyTest {
                 new BigDecimal("100.00"),
                 new BigDecimal("100.00"),
                 "PIX-125"));
+        assertThrows(IllegalStateException.class, () -> ServicePayoutPolicy.validarPagamento(
+                ServicePayoutStatus.CANCELADO,
+                PaymentStatus.REEMBOLSADO,
+                false,
+                new BigDecimal("100.00"),
+                new BigDecimal("100.00"),
+                "PIX-126"));
     }
 
     @Test
@@ -84,6 +91,13 @@ class ServicePayoutPolicyTest {
                 LifecycleStatusTransitionPolicy.ADMINISTRADOR));
         assertTrue(ServicePaymentService.podeTransicionar(
                 PaymentStatus.REPASSE_PENDENTE, PaymentStatus.CONTESTADO));
+        assertTrue(ServicePaymentService.podeTransicionar(
+                PaymentStatus.REPASSE_PENDENTE, PaymentStatus.REEMBOLSO_PENDENTE));
+        assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(
+                LifecycleStatusTransitionPolicy.PAGAMENTO,
+                PaymentStatus.REPASSE_PENDENTE.name(),
+                PaymentStatus.REEMBOLSO_PENDENTE.name(),
+                LifecycleStatusTransitionPolicy.ADMINISTRADOR));
         assertTrue(ServicePaymentService.podeTransicionar(
                 PaymentStatus.REPASSADO, PaymentStatus.REEMBOLSO_PENDENTE));
         assertDoesNotThrow(() -> LifecycleStatusTransitionPolicy.validar(

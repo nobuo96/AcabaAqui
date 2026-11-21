@@ -40,6 +40,7 @@ export default function AdminLayout() {
     >
       <Tabs.Screen name="index" options={{ title: 'Serviços' }} />
       <Tabs.Screen name="repasses" options={{ title: 'Repasses Pix' }} />
+      <Tabs.Screen name="disputas" options={{ title: 'Disputas' }} />
       <Tabs.Screen name="categorias" options={{ title: 'Categorias' }} />
       <Tabs.Screen name="perfil" options={{ title: 'Perfil' }} />
     </Tabs>

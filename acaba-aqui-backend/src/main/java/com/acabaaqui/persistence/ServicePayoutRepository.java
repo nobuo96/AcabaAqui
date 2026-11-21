@@ -10,6 +10,10 @@ import java.util.List;
 @ApplicationScoped
 public class ServicePayoutRepository implements PanacheRepository<ServicePayout> {
 
+    public ServicePayout buscarPorOrcamento(Long quoteId) {
+        return find("execucao.id = ?1", quoteId).firstResult();
+    }
+
     public ServicePayout buscarPorOrcamentoComBloqueio(Long quoteId) {
         return find("execucao.id = ?1", quoteId)
                 .withLock(LockModeType.PESSIMISTIC_WRITE).firstResult();

@@ -16,6 +16,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: config.name ?? 'acaba-aqui-frontend',
     slug: config.slug ?? 'acaba-aqui-frontend',
+    plugins: [...(config.plugins ?? []), 'expo-sharing'],
     scheme: [...schemes],
     ios: {
       ...config.ios,
