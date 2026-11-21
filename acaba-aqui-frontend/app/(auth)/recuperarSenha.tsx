@@ -32,13 +32,19 @@ export default function RecuperarSenhaScreen() {
         if (ocupado) {
             return;
         }
+        const normalizedEmail = email.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            setErroMensagem('Informe um e-mail válido.');
+            return;
+        }
+        setEmail(normalizedEmail);
         setErroMensagem('');
         setMensagem('');
         setOcupado(true);
         try {
             const response = await apiFetch('/auth/password-reset/request', {
                 method: 'POST',
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email: normalizedEmail }),
             });
             const body = await response.json().catch(() => null);
             if (!response.ok) {
@@ -149,6 +155,7 @@ export default function RecuperarSenhaScreen() {
                                 {etapa === 'email' ? <>
                                     <View style={styles.inputContainer}>
                     <AcabaAquiInput
+                        label="E-mail"
                         placeholder="E-mail"
                         keyboardType="email-address"
                                                 autoCapitalize="none"
@@ -158,11 +165,13 @@ export default function RecuperarSenhaScreen() {
                                     </View>
                                     <AcabaAquiButton
                                         text={ocupado ? 'Enviando...' : 'Enviar código'}
+                                        loading={ocupado}
                                         onPress={solicitarCodigo}
                                     />
                                 </> : <>
                                     <View style={styles.inputContainer}>
                                         <AcabaAquiInput
+                                                label="Código de 6 dígitos"
                                                 placeholder="Código de 6 dígitos"
                                                 keyboardType="numeric"
                                                 autoCapitalize="none"
@@ -170,12 +179,14 @@ export default function RecuperarSenhaScreen() {
                                                 onChangeText={(value) => setCodigo(value.replace(/\D/g, '').slice(0, 6))}
                                         />
                                         <AcabaAquiInput
+                                                label="Nova senha"
                                                 placeholder="Nova senha"
                                                 secureTextEntry
                                                 value={novaSenha}
                                                 onChangeText={setNovaSenha}
                                         />
                                         <AcabaAquiInput
+                                                label="Confirmar nova senha"
                                                 placeholder="Confirmar nova senha"
                                                 secureTextEntry
                                                 value={confirmarSenha}
@@ -184,6 +195,7 @@ export default function RecuperarSenhaScreen() {
                                     </View>
                                     <AcabaAquiButton
                                         text={ocupado ? 'Redefinindo...' : 'Redefinir senha'}
+                                        loading={ocupado}
                                         onPress={confirmarRedefinicao}
                                     />
                                     <Pressable disabled={ocupado || cooldown > 0} onPress={reenviarCodigo} style={styles.secondaryAction}>

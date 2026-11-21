@@ -13,11 +13,14 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.jboss.logging.Logger;
 
 @Path("/payouts")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class ServicePayoutResource {
+
+    private static final Logger LOG = Logger.getLogger(ServicePayoutResource.class);
 
     @Inject
     ServicePayoutService service;
@@ -27,7 +30,12 @@ public class ServicePayoutResource {
         if (userId(context) == null) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
-        return Response.ok(service.listarRepasses()).build();
+        try {
+            return Response.ok(service.listarRepasses()).build();
+        } catch (RuntimeException exception) {
+            LOG.error("Falha ao listar repasses administrativos em GET /payouts.", exception);
+            throw exception;
+        }
     }
 
     @GET

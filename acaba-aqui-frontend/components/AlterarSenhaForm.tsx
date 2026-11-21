@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { ScrollAreaView } from '@/components/ScrollAreaView';
 
 import { AcabaAquiButton } from '@/components/AcabaAquiButton';
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
@@ -70,7 +71,7 @@ export function AlterarSenhaForm({ onBack }: InformacoesPessoaisFormProps) {
     return (
         <View style={styles.container}>
             <AcabaAquiHeader title="Alterar Senha" backButton onBackPress={onBack} />
-            <ScrollView style={styles.inner} keyboardShouldPersistTaps="handled">
+            <ScrollAreaView contentContainerStyle={styles.inner}>
                 {erro ? <Text style={styles.error}>{erro}</Text> : null}
                 {mensagem ? <Text style={styles.success}>{mensagem}</Text> : null}
 
@@ -105,7 +106,7 @@ export function AlterarSenhaForm({ onBack }: InformacoesPessoaisFormProps) {
                 </View>
 
                 <AcabaAquiButton text={alterando ? 'Alterando...' : 'Alterar'} onPress={() => { void alterar(); }} />
-            </ScrollView>
+            </ScrollAreaView>
         </View>
     );
 }

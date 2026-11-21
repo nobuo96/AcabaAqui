@@ -25,6 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     android: {
       ...config.android,
       package: config.android?.package ?? 'com.acabaaqui.app.dev',
+      softwareKeyboardLayoutMode: 'resize',
     },
   };
 };

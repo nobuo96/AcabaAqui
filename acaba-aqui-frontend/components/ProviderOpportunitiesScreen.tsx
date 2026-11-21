@@ -16,6 +16,8 @@ import {
   type VisitSlot,
 } from '@/lib/communicationApi';
 
+type OpportunityFilter = 'novas' | 'aceitas' | 'encerradas';
+
 export function ProviderOpportunitiesScreen() {
   const router = useRouter();
   const [opportunities, setOpportunities] = useState<RequestOpportunity[]>([]);
@@ -30,6 +32,8 @@ export function ProviderOpportunitiesScreen() {
   const [workingSlotId, setWorkingSlotId] = useState<number | null>(null);
   const [sendingQuoteId, setSendingQuoteId] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState<OpportunityFilter>('novas');
+  const [expandedOpportunityId, setExpandedOpportunityId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -147,16 +151,45 @@ export function ProviderOpportunitiesScreen() {
     }
   }
 
+  const pendingCount = opportunities.filter((item) => item.status === 'PENDENTE').length;
+  const acceptedCount = opportunities.filter((item) => item.status === 'ACEITA').length;
+  const closedCount = opportunities.filter((item) =>
+    item.status === 'RECUSADA' || item.status === 'ENCERRADA').length;
+  const visibleOpportunities = opportunities.filter((item) => {
+    if (filter === 'novas') return item.status === 'PENDENTE';
+    if (filter === 'aceitas') return item.status === 'ACEITA';
+    return item.status === 'RECUSADA' || item.status === 'ENCERRADA';
+  });
+
   return (
     <View style={styles.container}>
       <AcabaAquiHeader title="Oportunidades" />
       <ScrollAreaView contentContainerStyle={styles.content}>
         <InAppNotificationInbox />
+        <View style={styles.filters}>
+          <OpportunityFilterButton label={`Novas · ${pendingCount}`} selected={filter === 'novas'}
+            onPress={() => setFilter('novas')} />
+          <OpportunityFilterButton label={`Aceitas · ${acceptedCount}`} selected={filter === 'aceitas'}
+            onPress={() => setFilter('aceitas')} />
+          <OpportunityFilterButton label={`Encerradas · ${closedCount}`} selected={filter === 'encerradas'}
+            onPress={() => setFilter('encerradas')} />
+        </View>
         {loading ? <Text style={styles.muted}>Carregando oportunidades...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {!loading && opportunities.length === 0
-          ? <Text style={styles.muted}>Ainda não há oportunidades para seus serviços e regiões.</Text> : null}
-        {opportunities.map((item) => (
+        {!loading && visibleOpportunities.length === 0
+          ? <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>
+                {filter === 'novas' ? 'Nenhuma oportunidade nova' : filter === 'aceitas'
+                  ? 'Nenhuma oportunidade aceita' : 'Nenhuma oportunidade encerrada'}
+              </Text>
+              <Text style={styles.muted}>
+                {filter === 'novas'
+                  ? 'Quando surgir uma solicitação compatível com seus serviços e regiões, ela aparecerá aqui.'
+                  : filter === 'aceitas' ? 'As oportunidades que você aceitar ficam disponíveis nesta lista.'
+                    : 'As oportunidades recusadas ou encerradas aparecerão aqui.'}
+              </Text>
+            </View> : null}
+        {visibleOpportunities.map((item) => (
           <View key={item.id} style={styles.card}>
             <View style={styles.heading}>
               <Text style={styles.title}>{item.servicoNome}</Text>
@@ -183,6 +216,29 @@ export function ProviderOpportunitiesScreen() {
             ) : null}
             {item.status === 'ACEITA' ? (
               <>
+                <Text style={styles.summary}>
+                  {(visitSlotsByRequest[item.solicitacaoId] ?? []).filter((slot) =>
+                    ['DISPONIVEL', 'RESERVADA', 'CONFIRMADA'].includes(slot.status)).length} horários ativos
+                  {' · '}{(quotesByRequest[item.solicitacaoId] ?? []).length} orçamentos enviados
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: expandedOpportunityId === item.id }}
+                  onPress={() => setExpandedOpportunityId(
+                    expandedOpportunityId === item.id ? null : item.id,
+                  )}
+                  style={styles.detailsToggle}
+                >
+                  <Text style={styles.detailsToggleText}>
+                    {expandedOpportunityId === item.id
+                      ? 'Ocultar visitas e orçamento'
+                      : 'Ver visitas e orçamento'}
+                  </Text>
+                  <Text style={styles.detailsChevron}>
+                    {expandedOpportunityId === item.id ? '−' : '+'}
+                  </Text>
+                </Pressable>
+                {expandedOpportunityId === item.id ? <>
                 <View style={styles.visitSection}>
                   <Text style={styles.visitHeading}>Horários de visita</Text>
                   <Text style={styles.muted}>O chat ficará disponível após o cliente confirmar.</Text>
@@ -292,12 +348,30 @@ export function ProviderOpportunitiesScreen() {
                     </View>
                   ) : null}
                 </View>
+                </> : null}
               </>
             ) : null}
           </View>
         ))}
       </ScrollAreaView>
     </View>
+  );
+}
+
+function OpportunityFilterButton({ label, selected, onPress }: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.filter, selected && styles.selectedFilter]}
+    >
+      <Text style={[styles.filterText, selected && styles.selectedFilterText]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -351,12 +425,25 @@ function formatArea(value: number) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   content: { padding: 20, gap: 14 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filter: { borderWidth: 1, borderColor: '#ccc', borderRadius: 20,
+    minHeight: 40, paddingHorizontal: 12, paddingVertical: 9 },
+  selectedFilter: { backgroundColor: '#a43434', borderColor: '#a43434' },
+  filterText: { color: '#555' },
+  selectedFilterText: { color: '#fff', fontWeight: '700' },
+  emptyState: { backgroundColor: '#fafafa', borderRadius: 12, gap: 8, padding: 16 },
+  emptyTitle: { color: '#333', fontSize: 17, fontWeight: '700' },
   card: { borderColor: '#e1e1e1', borderRadius: 12, borderWidth: 1, gap: 9, padding: 14 },
   heading: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
   title: { color: '#222', flex: 1, fontSize: 17, fontWeight: '700' },
   status: { backgroundColor: '#edf4eb', borderRadius: 12, color: '#426341', fontSize: 12,
     overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 4 },
   closedStatus: { backgroundColor: '#eee', color: '#666' },
+  summary: { color: '#666', fontSize: 13 },
+  detailsToggle: { alignItems: 'center', borderTopColor: '#eee', borderTopWidth: 1,
+    flexDirection: 'row', justifyContent: 'space-between', marginTop: 2, minHeight: 42, paddingTop: 7 },
+  detailsToggleText: { color: '#a43434', fontSize: 14, fontWeight: '700' },
+  detailsChevron: { color: '#a43434', fontSize: 22 },
   detail: { color: '#444', lineHeight: 21 },
   date: { color: '#777', fontSize: 13 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 4 },

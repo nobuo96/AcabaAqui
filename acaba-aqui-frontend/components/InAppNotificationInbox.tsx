@@ -1,14 +1,16 @@
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Text } from '@/components/Themed';
 import { inAppNotificationApi, type InAppNotification } from '@/lib/communicationApi';
 
 export function InAppNotificationInbox() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [error, setError] = useState('');
   const [workingId, setWorkingId] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -40,7 +42,12 @@ export function InAppNotificationInbox() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Notificações</Text>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
+        onPress={() => setExpanded((current) => !current)} style={styles.headingRow}>
+        <Text style={styles.heading}>Notificações</Text>
+        <Text style={styles.action}>{expanded ? 'Recolher' : `${notifications.filter((item) => !item.lida).length} nova(s)`}</Text>
+      </Pressable>
+      {!expanded ? null : <>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {!error && notifications.length === 0
         ? <Text style={styles.muted}>Você não tem notificações.</Text> : null}
@@ -52,6 +59,14 @@ export function InAppNotificationInbox() {
               {new Date(notification.dataCriacao).toLocaleString('pt-BR')}
             </Text>
           </View>
+          {notification.solicitacaoId ? (
+            <Pressable accessibilityRole="link" onPress={() => {
+              void markRead(notification.id);
+              router.push('/(cliente)/solicitacoes');
+            }}>
+              <Text style={styles.action}>Abrir solicitação</Text>
+            </Pressable>
+          ) : null}
           {!notification.lida ? (
             <Pressable
               disabled={workingId !== null}
@@ -64,12 +79,14 @@ export function InAppNotificationInbox() {
           ) : <Text style={styles.readLabel}>Lida</Text>}
         </View>
       ))}
+      </>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { borderColor: '#e1e1e1', borderRadius: 12, borderWidth: 1, gap: 8, padding: 14 },
+  headingRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   heading: { color: '#333', fontSize: 16, fontWeight: '700' },
   item: { alignItems: 'center', borderTopColor: '#eee', borderTopWidth: 1, flexDirection: 'row',
     gap: 10, justifyContent: 'space-between', paddingTop: 9 },

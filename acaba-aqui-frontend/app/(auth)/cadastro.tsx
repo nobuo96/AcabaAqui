@@ -56,9 +56,22 @@ export default function CadastroScreen() {
             return;
         }
 
+        const normalizedEmail = useData.email.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            setErroMensagem('Informe um e-mail válido.');
+            return;
+        }
+        if (useData.nome.trim().length < 2) {
+            setErroMensagem('Informe seu nome completo.');
+            return;
+        }
+        if (senha.length < 8) {
+            setErroMensagem('A senha deve ter pelo menos 8 caracteres.');
+            return;
+        }
         const payload = {
             nome: useData.nome,
-            email: useData.email,
+            email: normalizedEmail,
             telefone: useData.telefone,
             perfil: useData.perfil,
             senha,
@@ -179,17 +192,20 @@ export default function CadastroScreen() {
                                 {etapa === 'dados' ? <>
                                     <View style={styles.inputContainer}>
                     <AcabaAquiInput
+                        label="Nome completo"
                         placeholder="Nome Completo"
                         value={useData.nome}
                         onChangeText={(text) => handleInputChange('nome', text)}
                     />
                     <AcabaAquiInput
+                        label="Telefone"
                         placeholder="Telefone"
                         keyboardType="phone-pad"
                         value={useData.telefone}
                         onChangeText={(text) => handleInputChange('telefone', text)}
                     />
                     <AcabaAquiInput
+                        label="E-mail"
                         placeholder="E-mail"
                         keyboardType="email-address"
                         value={useData.email}
@@ -197,6 +213,9 @@ export default function CadastroScreen() {
                     />
                     
                     <Text style={styles.roleLabel}>Escolha seu Perfil</Text>
+                    <Text style={styles.subTitle}>
+                        Cliente contrata serviços. Prestador recebe solicitações e envia orçamentos.
+                    </Text>
                     <View style={styles.profileSelector}>
                         <Pressable
                             style={[
@@ -220,12 +239,14 @@ export default function CadastroScreen() {
                     </View>
 
                     <AcabaAquiInput
+                        label="Senha"
                         placeholder="Senha"
                         secureTextEntry={true}
                         value={senha}
                         onChangeText={setSenha}
                     />
                     <AcabaAquiInput
+                        label="Confirmar senha"
                         placeholder="Confirmar Senha"
                         secureTextEntry={true}
                         value={confirmarSenha}
@@ -234,11 +255,13 @@ export default function CadastroScreen() {
                   </View>
                   <AcabaAquiButton
                       text={ocupado ? 'Enviando código...' : 'Enviar código'}
+                      loading={ocupado}
                       onPress={handleCadastro}
                   />
                 </> : <>
                   <View style={styles.inputContainer}>
                     <AcabaAquiInput
+                        label="Código de 6 dígitos"
                         placeholder="Código de 6 dígitos"
                         keyboardType="numeric"
                         autoCapitalize="none"
@@ -248,6 +271,7 @@ export default function CadastroScreen() {
                   </View>
                   <AcabaAquiButton
                       text={ocupado ? 'Validando...' : 'Confirmar e-mail'}
+                      loading={ocupado}
                       onPress={handleConfirmarCodigo}
                   />
                   <Pressable

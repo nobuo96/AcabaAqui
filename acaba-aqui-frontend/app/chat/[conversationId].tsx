@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { AcabaAquiHeader } from '@/components/AcabaAquiHeader';
-import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
 import { communicationApi, type ChatMessage } from '@/lib/communicationApi';
 import { getAuthUserId } from '@/lib/authToken';
@@ -18,6 +17,8 @@ export default function ChatRoute() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [chatTitle, setChatTitle] = useState('Chat');
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -35,6 +36,14 @@ export default function ChatRoute() {
           setMessages(items);
           setUserId(currentUserId);
           setError('');
+          setLoading(false);
+          const conversations = await communicationApi.listConversations();
+          const conversation = conversations.find((item) => item.id === conversationId);
+          if (conversation) {
+            const participant = String(conversation.clienteId) === String(currentUserId)
+              ? conversation.prestadorNome : conversation.clienteNome;
+            setChatTitle(`${conversation.servicoNome} · ${participant}`);
+          }
         }
       } catch (loadError) {
         if (active) {
@@ -69,9 +78,18 @@ export default function ChatRoute() {
   }
 
   return (
-    <View style={styles.container}>
-      <AcabaAquiHeader title="Chat" backButton onBackPress={() => router.back()} />
-      <ScrollAreaView contentContainerStyle={styles.messages}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
+    >
+      <AcabaAquiHeader title={chatTitle} backButton onBackPress={() => router.back()} />
+      <ScrollView
+        style={styles.messageList}
+        contentContainerStyle={styles.messages}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      >
+        {loading ? <Text style={styles.empty}>Carregando mensagens...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {messages.length === 0 && !error
           ? <Text style={styles.empty}>Envie uma mensagem para iniciar a conversa.</Text> : null}
@@ -87,22 +105,37 @@ export default function ChatRoute() {
             </View>
           );
         })}
-      </ScrollAreaView>
+      </ScrollView>
       <View style={styles.composer}>
-        <TextInput value={draft} onChangeText={setDraft} placeholder="Digite sua mensagem"
-          multiline maxLength={4000} style={styles.input} />
-        <Pressable disabled={sending || !draft.trim()} onPress={() => { void send(); }}
-          style={[styles.sendButton, (sending || !draft.trim()) && styles.disabledButton]}>
+        <TextInput
+          accessibilityLabel="Digite sua mensagem"
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Digite sua mensagem"
+          multiline
+          maxLength={4000}
+          textAlignVertical="top"
+          style={styles.input}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={sending ? 'Enviando mensagem' : 'Enviar mensagem'}
+          accessibilityState={{ disabled: sending || !draft.trim(), busy: sending }}
+          disabled={sending || !draft.trim()}
+          onPress={() => { void send(); }}
+          style={[styles.sendButton, (sending || !draft.trim()) && styles.disabledButton]}
+        >
           <Text style={styles.sendText}>{sending ? '...' : 'Enviar'}</Text>
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  messages: { flexGrow: 1, gap: 10, padding: 16 },
+  messageList: { flex: 1 },
+  messages: { flexGrow: 1, gap: 10, padding: 16, paddingBottom: 24 },
   empty: { color: '#666', textAlign: 'center', marginTop: 16 },
   message: { borderRadius: 12, maxWidth: '85%', padding: 11 },
   ownMessage: { alignSelf: 'flex-end', backgroundColor: '#f5e5e5' },
@@ -111,7 +144,7 @@ const styles = StyleSheet.create({
   messageText: { color: '#222', fontSize: 16 },
   time: { color: '#777', fontSize: 11, marginTop: 5, textAlign: 'right' },
   composer: { alignItems: 'flex-end', borderTopColor: '#eaeaea', borderTopWidth: 1,
-    flexDirection: 'row', gap: 8, padding: 12 },
+    flexDirection: 'row', gap: 8, padding: 12, backgroundColor: '#fff' },
   input: { borderColor: '#ccc', borderRadius: 10, borderWidth: 1, color: '#222',
     flex: 1, maxHeight: 120, minHeight: 42, paddingHorizontal: 12, paddingVertical: 9 },
   sendButton: { backgroundColor: '#a43434', borderRadius: 9, paddingHorizontal: 15, paddingVertical: 12 },

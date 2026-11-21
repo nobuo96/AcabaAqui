@@ -81,6 +81,11 @@ export default function PaymentReturnScreen() {
               Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
                 .format(lookup.payment?.amount ?? 0)}
             </Text>
+            {lookup.payment?.updatedAt ? (
+              <Text style={styles.muted}>
+                Última atualização: {new Date(lookup.payment.updatedAt).toLocaleString('pt-BR')}
+              </Text>
+            ) : null}
             {status === 'AGUARDANDO_PAGAMENTO' ? (
               <Text style={styles.muted}>
                 O Mercado Pago ainda não confirmou o pagamento. Atualize em instantes; não use o retorno
@@ -92,7 +97,8 @@ export default function PaymentReturnScreen() {
             ) : null}
           </>
         ) : null}
-        <AcabaAquiButton text="Atualizar status" onPress={() => { void refresh(); }} />
+        <AcabaAquiButton text="Atualizar status" loading={loading}
+          onPress={() => { void refresh(); }} />
         <AcabaAquiButton
           text="Voltar para solicitações"
           onPress={() => router.replace('/(cliente)/solicitacoes')}

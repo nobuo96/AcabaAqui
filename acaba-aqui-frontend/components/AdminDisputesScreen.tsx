@@ -12,6 +12,8 @@ import {
 } from '@/lib/communicationApi';
 import { openDisputeEvidence } from '@/lib/openDisputeEvidence';
 
+type DisputeFilter = 'abertas' | 'encerradas' | 'todas';
+
 export function AdminDisputesScreen() {
   const [disputes, setDisputes] = useState<ServiceDispute[]>([]);
   const [selected, setSelected] = useState<ServiceDispute | null>(null);
@@ -19,6 +21,7 @@ export function AdminDisputesScreen() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState<DisputeFilter>('abertas');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,6 +84,14 @@ export function AdminDisputesScreen() {
     }
   }
 
+  const openCount = disputes.filter((dispute) => dispute.status === 'ABERTA').length;
+  const closedCount = disputes.length - openCount;
+  const visibleDisputes = disputes.filter((dispute) => {
+    if (filter === 'abertas') return dispute.status === 'ABERTA';
+    if (filter === 'encerradas') return dispute.status !== 'ABERTA';
+    return true;
+  });
+
   return (
     <View style={styles.container}>
       <AcabaAquiHeader title="Disputas" />
@@ -89,12 +100,23 @@ export function AdminDisputesScreen() {
           Revise o relato e as evidências antes de encerrar cada disputa. O repasse fica bloqueado enquanto ela estiver aberta.
           Evidências expiram 180 dias após o encerramento.
         </Text>
+        <View style={styles.filters}>
+          <AdminFilterButton label={`Abertas · ${openCount}`} selected={filter === 'abertas'}
+            onPress={() => { setFilter('abertas'); setSelected(null); setDecisionReason(''); }} />
+          <AdminFilterButton label={`Encerradas · ${closedCount}`} selected={filter === 'encerradas'}
+            onPress={() => { setFilter('encerradas'); setSelected(null); setDecisionReason(''); }} />
+          <AdminFilterButton label={`Todas · ${disputes.length}`} selected={filter === 'todas'}
+            onPress={() => { setFilter('todas'); setSelected(null); setDecisionReason(''); }} />
+        </View>
         {loading ? <Text style={styles.muted}>Carregando disputas...</Text> : null}
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-        {!loading && disputes.length === 0
-          ? <Text style={styles.muted}>Não há disputas registradas.</Text>
+        {!loading && visibleDisputes.length === 0
+          ? <Text style={styles.muted}>
+              {filter === 'abertas' ? 'Não há disputas abertas aguardando análise.'
+                : filter === 'encerradas' ? 'Nenhuma disputa encerrada ainda.' : 'Não há disputas registradas.'}
+            </Text>
           : null}
-        {disputes.map((dispute) => (
+        {visibleDisputes.map((dispute) => (
           <View key={dispute.id} style={styles.card}>
             <View style={styles.heading}>
               <Text style={styles.title}>{dispute.serviceName}</Text>
@@ -200,6 +222,23 @@ export function AdminDisputesScreen() {
   );
 }
 
+function AdminFilterButton({ label, selected, onPress }: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.filter, selected && styles.selectedFilter]}
+    >
+      <Text style={[styles.filterText, selected && styles.selectedFilterText]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function decisionLabel(decision: ServiceDispute['decision']) {
   return decision === 'REEMBOLSAR_CLIENTE' ? 'Reembolsar cliente' : 'Pagar prestador';
 }
@@ -211,6 +250,12 @@ function formatDate(value: string) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f6f6f6' },
   content: { padding: 16, paddingBottom: 32, gap: 12 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filter: { backgroundColor: '#eee', borderRadius: 20, minHeight: 40,
+    justifyContent: 'center', paddingHorizontal: 13, paddingVertical: 8 },
+  selectedFilter: { backgroundColor: '#a43434' },
+  filterText: { color: '#444', fontWeight: '600' },
+  selectedFilterText: { color: '#fff' },
   intro: { color: '#444', fontSize: 14, lineHeight: 20 },
   muted: { color: '#666', fontSize: 13, lineHeight: 19 },
   warning: { color: '#854c00', fontSize: 13, lineHeight: 19, fontWeight: '600' },

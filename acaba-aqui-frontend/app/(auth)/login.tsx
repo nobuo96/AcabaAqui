@@ -40,6 +40,7 @@ export default function LoginScreen() {
   const [senha, setSenha] = useState('');
   const [erroMensagem, setErroMensagem] = useState('');
   const [socialBusy, setSocialBusy] = useState(false);
+  const [loginBusy, setLoginBusy] = useState(false);
   const [socialDraft, setSocialDraft] = useState<{
     provider: SocialProvider;
     credential: string;
@@ -171,11 +172,18 @@ export default function LoginScreen() {
   }, [facebookResponse]);
 
   const handleLogin = async () => {
+    if (loginBusy) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setErroMensagem('Informe um e-mail válido.');
+      return;
+    }
     setErroMensagem('');
+    setLoginBusy(true);
     try {
       const resposta = await apiFetch('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, senha }),
+        body: JSON.stringify({ email: normalizedEmail, senha }),
       });
 
       if (!resposta.ok) {
@@ -187,6 +195,8 @@ export default function LoginScreen() {
       await navigateAfterLogin(auth);
     } catch {
       setErroMensagem('Não foi possível conectar ao servidor.');
+    } finally {
+      setLoginBusy(false);
     }
   };
 
@@ -261,6 +271,7 @@ export default function LoginScreen() {
 
         <View style={styles.inputContainer}>
           <AcabaAquiInput
+            label="E-mail"
             placeholder="E-mail"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -268,6 +279,7 @@ export default function LoginScreen() {
             onChangeText={setEmail}
           />
           <AcabaAquiInput
+            label="Senha"
             placeholder="Senha"
             secureTextEntry={true}
             value={senha}
@@ -275,7 +287,7 @@ export default function LoginScreen() {
           />
         </View>
 
-        <AcabaAquiButton text="Entrar" onPress={handleLogin} />
+        <AcabaAquiButton text="Entrar" loading={loginBusy} onPress={handleLogin} />
 
         <View style={styles.optionsContainer}>
           <Link href="/(auth)/cadastro" style={{ textDecorationLine: 'underline' }}>

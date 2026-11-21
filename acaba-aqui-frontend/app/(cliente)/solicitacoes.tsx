@@ -19,7 +19,7 @@ import {
 } from '@/lib/communicationApi';
 import * as WebBrowser from 'expo-web-browser';
 
-type Filter = 'todas' | 'abertas';
+type Filter = 'atencao' | 'andamento' | 'encerradas';
 
 export default function SolicitacoesScreen() {
   const router = useRouter();
@@ -27,7 +27,8 @@ export default function SolicitacoesScreen() {
   const [visitSlotsByRequest, setVisitSlotsByRequest] = useState<Record<number, VisitSlot[]>>({});
   const [quotesByRequest, setQuotesByRequest] = useState<Record<number, ServiceQuote[]>>({});
   const [paymentsByQuote, setPaymentsByQuote] = useState<Record<number, ServicePayment>>({});
-  const [filter, setFilter] = useState<Filter>('todas');
+  const [filter, setFilter] = useState<Filter>('atencao');
+  const [expandedRequestId, setExpandedRequestId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
@@ -39,6 +40,7 @@ export default function SolicitacoesScreen() {
   const [serviceCancellationQuoteId, setServiceCancellationQuoteId] = useState<number | null>(null);
   const [cancellationReasons, setCancellationReasons] = useState<Record<number, string>>({});
   const [cancellationResults, setCancellationResults] = useState<Record<number, string>>({});
+  const [confirmingQuoteId, setConfirmingQuoteId] = useState<number | null>(null);
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -48,6 +50,7 @@ export default function SolicitacoesScreen() {
       if (!userId) {
         throw new Error('Sessão não encontrada. Entre novamente.');
       }
+
       const items = await serviceRequestApi.list(userId);
       const slotsByRequest: Record<number, VisitSlot[]> = {};
       const quotesByRequest: Record<number, ServiceQuote[]> = {};
@@ -213,9 +216,22 @@ export default function SolicitacoesScreen() {
     }
   }
 
-  const visibleRequests = filter === 'abertas'
-    ? requests.filter((request) => request.status !== 'ENCERRADA')
-    : requests;
+  const needsAttention = (request: ServiceRequest) => Boolean(getRequestNextAction(
+    request.status,
+    visitSlotsByRequest[request.id] ?? [],
+    quotesByRequest[request.id] ?? [],
+    paymentsByQuote,
+  ));
+  const attentionCount = requests.filter((request) => request.status !== 'ENCERRADA'
+    && needsAttention(request)).length;
+  const inProgressCount = requests.filter((request) => request.status !== 'ENCERRADA'
+    && !needsAttention(request)).length;
+  const closedCount = requests.filter((request) => request.status === 'ENCERRADA').length;
+  const visibleRequests = requests.filter((request) => {
+    if (filter === 'atencao') return request.status !== 'ENCERRADA' && needsAttention(request);
+    if (filter === 'andamento') return request.status !== 'ENCERRADA' && !needsAttention(request);
+    return request.status === 'ENCERRADA';
+  });
 
   return (
     <View style={styles.container}>
@@ -226,31 +242,96 @@ export default function SolicitacoesScreen() {
           text="Nova solicitação"
           onPress={() => router.push('/cliente/novaSolicitacao')}
         />
-        <View style={styles.filters}>
-          <FilterButton label={`Todas (${requests.length})`} selected={filter === 'todas'}
-            onPress={() => setFilter('todas')} />
-          <FilterButton label={`Abertas (${requests.filter((item) => item.status !== 'ENCERRADA').length})`}
-            selected={filter === 'abertas'} onPress={() => setFilter('abertas')} />
+        <View style={styles.filters} accessibilityRole="tablist">
+          <FilterButton label={`Precisa de você · ${attentionCount}`} selected={filter === 'atencao'}
+            onPress={() => setFilter('atencao')} />
+          <FilterButton label={`Em andamento · ${inProgressCount}`} selected={filter === 'andamento'}
+            onPress={() => setFilter('andamento')} />
+          <FilterButton label={`Encerradas · ${closedCount}`} selected={filter === 'encerradas'}
+            onPress={() => setFilter('encerradas')} />
         </View>
 
         {loading ? <Text style={styles.muted}>Carregando solicitações...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {!loading && !error && visibleRequests.length === 0 ? (
-          <Text style={styles.muted}>
-            {filter === 'abertas' ? 'Você não tem solicitações abertas.' : 'Você ainda não criou solicitações.'}
-          </Text>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>
+              {filter === 'atencao' ? 'Tudo em dia por aqui' : filter === 'andamento'
+                ? 'Nenhuma solicitação em andamento' : 'Nenhuma solicitação encerrada'}
+            </Text>
+            <Text style={styles.muted}>
+              {filter === 'atencao'
+                ? 'Não há solicitações aguardando uma ação sua no momento. Confira as que estão em andamento.'
+                : filter === 'andamento'
+                  ? 'Solicitações sem ações pendentes aparecerão aqui.'
+                  : 'Quando uma solicitação for encerrada, você poderá encontrá-la aqui.'}
+            </Text>
+            {filter === 'atencao' && inProgressCount > 0 ? (
+              <Pressable onPress={() => setFilter('andamento')} accessibilityRole="button">
+                <Text style={styles.action}>Ver solicitações em andamento</Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
 
-        {!loading ? visibleRequests.map((request) => (
-          <View key={request.id} style={styles.card}>
-            <View style={styles.cardHeading}>
-              <Text style={styles.cardTitle}>{request.servicoNome}</Text>
-              <Text style={[styles.status, request.status === 'ENCERRADA' && styles.closedStatus]}>
-                {request.status === 'ENCERRADA' ? 'Encerrada' : 'Criada'}
+        {!loading ? visibleRequests.map((request) => {
+          const requestSlots = visitSlotsByRequest[request.id] ?? [];
+          const requestQuotes = quotesByRequest[request.id] ?? [];
+          const nextAction = getRequestNextAction(
+            request.status,
+            requestSlots,
+            requestQuotes,
+            paymentsByQuote,
+          );
+          const expanded = expandedRequestId === request.id;
+          const activeSlotCount = requestSlots.filter((slot) =>
+            ['DISPONIVEL', 'RESERVADA', 'CONFIRMADA'].includes(slot.status)).length;
+          const newQuoteCount = requestQuotes.filter((quote) => quote.status === 'ENVIADO').length;
+          const progressHint = request.status === 'ENCERRADA'
+            ? 'Esta solicitação foi encerrada.'
+            : requestQuotes.some((quote) =>
+              quote.status === 'APROVADO' && paymentsByQuote[quote.id]?.status === 'PAGO')
+              ? 'Pagamento confirmado. Acompanhe o serviço na aba Serviços.'
+              : requestSlots.some((slot) => slot.status === 'CONFIRMADA')
+                ? 'Visita confirmada. Aguarde o contato do prestador e novos orçamentos.'
+                : 'A solicitação está aguardando retorno dos prestadores.';
+          return (
+          <View key={request.id} style={[styles.card, expanded && styles.expandedCard]}>
+            <View style={styles.summaryHeader}>
+              <View style={styles.summaryText}>
+                <Text style={styles.cardTitle}>{request.servicoNome}</Text>
+                <Text style={styles.summaryLocation}>{formatShortAddress(request)}</Text>
+              </View>
+              <Text style={[
+                styles.status,
+                request.status === 'ENCERRADA' ? styles.closedStatus : nextAction
+                  ? styles.attentionStatus : styles.progressStatus,
+              ]}>
+                {request.status === 'ENCERRADA' ? 'Encerrada' : nextAction ? 'Precisa de você' : 'Em andamento'}
               </Text>
             </View>
-            <Text style={styles.detail}>Área: {formatArea(request.areaM2)} m²</Text>
-            <Text style={styles.detail}>{formatAddress(request)}</Text>
+            <Text style={styles.summaryMeta}>
+              {formatArea(request.areaM2)} m²
+              {' · '}{activeSlotCount} {activeSlotCount === 1 ? 'horário ativo' : 'horários ativos'}
+              {' · '}{newQuoteCount} {newQuoteCount === 1 ? 'novo orçamento' : 'novos orçamentos'}
+            </Text>
+            <Text style={[styles.nextAction, !nextAction && styles.muted]}>
+              {nextAction ?? progressHint}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded }}
+              onPress={() => setExpandedRequestId(expanded ? null : request.id)}
+              style={styles.detailsToggle}
+            >
+              <Text style={styles.detailsToggleText}>
+                {expanded ? 'Ocultar detalhes' : 'Ver detalhes e ações'}
+              </Text>
+              <Text style={styles.detailsChevron}>{expanded ? '−' : '+'}</Text>
+            </Pressable>
+
+            {expanded ? <>
+            <Text style={styles.detail}>Endereço: {formatAddress(request)}</Text>
             <Text style={styles.date}>Criada em {formatDate(request.dataCriacao)}</Text>
 
             <View style={styles.visits}>
@@ -326,15 +407,32 @@ export default function SolicitacoesScreen() {
                         <Text style={styles.date}>Válido até {formatDate(quote.expiraEm)}</Text>
                         {request.status !== 'ENCERRADA' ? (
                           <View style={styles.quoteActions}>
-                            <Pressable
-                              disabled={workingQuoteId !== null}
-                              onPress={() => { void decideQuote(quote.id, 'approve'); }}
-                              style={[styles.quoteButton, styles.approveButton]}
-                            >
-                              <Text style={styles.approveText}>
-                                {workingQuoteId === quote.id ? 'Aguarde...' : 'Aprovar orçamento'}
-                              </Text>
-                            </Pressable>
+                            {confirmingQuoteId === quote.id ? (
+                              <View style={styles.quoteConfirmation}>
+                                <Text style={styles.confirmText}>
+                                  Aprovar com {quote.prestadorNome} por {formatCurrency(quote.valorTotal)}?
+                                  {' '}A garantia será de {quote.garantiaDias} dias corridos.
+                                </Text>
+                                <Pressable disabled={workingQuoteId !== null}
+                                  onPress={() => { void decideQuote(quote.id, 'approve'); }}
+                                  style={[styles.quoteButton, styles.approveButton]}>
+                                  <Text style={styles.approveText}>
+                                    {workingQuoteId === quote.id ? 'Aprovando...' : 'Confirmar aprovação'}
+                                  </Text>
+                                </Pressable>
+                                <Pressable onPress={() => setConfirmingQuoteId(null)}>
+                                  <Text style={styles.action}>Voltar</Text>
+                                </Pressable>
+                              </View>
+                            ) : (
+                              <Pressable
+                                disabled={workingQuoteId !== null}
+                                onPress={() => setConfirmingQuoteId(quote.id)}
+                                style={[styles.quoteButton, styles.approveButton]}
+                              >
+                                <Text style={styles.approveText}>Aprovar orçamento</Text>
+                              </Pressable>
+                            )}
                             <Pressable
                               disabled={workingQuoteId !== null}
                               onPress={() => { void decideQuote(quote.id, 'reject'); }}
@@ -494,8 +592,10 @@ export default function SolicitacoesScreen() {
                 </Pressable>
               )
             ) : null}
+            </> : null}
           </View>
-        )) : null}
+          );
+        }) : null}
       </ScrollAreaView>
     </View>
   );
@@ -507,10 +607,45 @@ function FilterButton({ label, selected, onPress }: {
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={[styles.filter, selected && styles.selectedFilter]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.filter, selected && styles.selectedFilter]}
+    >
       <Text style={[styles.filterText, selected && styles.selectedFilterText]}>{label}</Text>
     </Pressable>
   );
+}
+
+function getRequestNextAction(
+  requestStatus: ServiceRequest['status'],
+  slots: VisitSlot[],
+  quotes: ServiceQuote[],
+  payments: Record<number, ServicePayment>,
+) {
+  if (requestStatus === 'ENCERRADA') return null;
+  if (slots.some((slot) => slot.status === 'RESERVADA')) {
+    return 'Confirme ou cancele o horário de visita reservado pelo prestador.';
+  }
+  if (quotes.some((quote) => quote.status === 'ENVIADO')) {
+    return 'Revise os novos orçamentos e escolha se deseja aprovar um deles.';
+  }
+  const approvedQuote = quotes.find((quote) => quote.status === 'APROVADO');
+  if (approvedQuote) {
+    const payment = payments[approvedQuote.id];
+    if (!payment) return 'Pague o orçamento aprovado para iniciar o serviço.';
+    if (payment.status === 'AGUARDANDO_PAGAMENTO') {
+      return 'Conclua o pagamento do orçamento aprovado.';
+    }
+    if (['RECUSADO', 'EXPIRADO', 'CANCELADO'].includes(payment.status)) {
+      return 'O pagamento não foi concluído. Tente novamente nos detalhes.';
+    }
+    if (payment.status === 'REEMBOLSO_PENDENTE') {
+      return 'O reembolso está em processamento. Confira os detalhes para acompanhar.';
+    }
+  }
+  return null;
 }
 
 function formatArea(area: number) {
@@ -523,8 +658,28 @@ function formatDate(value: string) {
 
 function formatVisitTime(slot: VisitSlot) {
   const [date, time] = slot.inicioLocal.split('T');
-  return `${date} às ${time.slice(0, 5)} (${slot.timeZoneId})`;
+  const zoneLabel = brazilianZoneLabels[slot.timeZoneId] ?? 'horário local do endereço';
+  return `${date} às ${time.slice(0, 5)} (${zoneLabel})`;
 }
+
+const brazilianZoneLabels: Record<string, string> = {
+  'America/Noronha': 'Fernando de Noronha',
+  'America/Belem': 'Belém',
+  'America/Fortaleza': 'Fortaleza',
+  'America/Recife': 'Recife',
+  'America/Araguaina': 'Araguaína',
+  'America/Maceio': 'Maceió',
+  'America/Bahia': 'Bahia',
+  'America/Sao_Paulo': 'São Paulo',
+  'America/Campo_Grande': 'Campo Grande',
+  'America/Cuiaba': 'Cuiabá',
+  'America/Santarem': 'Santarém',
+  'America/Porto_Velho': 'Porto Velho',
+  'America/Boa_Vista': 'Boa Vista',
+  'America/Manaus': 'Manaus',
+  'America/Eirunepe': 'Eirunepé',
+  'America/Rio_Branco': 'Rio Branco',
+};
 
 function visitStatusLabel(slot: VisitSlot) {
   if (slot.status === 'DISPONIVEL') return 'Aguardando escolha do prestador';
@@ -570,15 +725,35 @@ function formatAddress(request: ServiceRequest) {
   return [address.apelido, street, `${address.cidade} - ${address.uf}`].filter(Boolean).join(' · ');
 }
 
+function formatShortAddress(request: ServiceRequest) {
+  const address = request.endereco;
+  return [address.apelido, `${address.cidade} - ${address.uf}`].filter(Boolean).join(' · ');
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   content: { paddingHorizontal: 20, paddingVertical: 18, gap: 14 },
-  filters: { flexDirection: 'row', gap: 8 },
-  filter: { borderWidth: 1, borderColor: '#ccc', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filter: { borderWidth: 1, borderColor: '#ccc', borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 9, minHeight: 40 },
   selectedFilter: { backgroundColor: '#a43434', borderColor: '#a43434' },
   filterText: { color: '#555' },
   selectedFilterText: { color: '#fff', fontWeight: '600' },
-  card: { borderWidth: 1, borderColor: '#e1e1e1', borderRadius: 12, gap: 9, padding: 14 },
+  card: { borderWidth: 1, borderColor: '#e1e1e1', borderRadius: 14, gap: 9, padding: 14 },
+  expandedCard: { borderColor: '#d3d3d3' },
+  summaryHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
+  summaryText: { flex: 1, gap: 3 },
+  summaryLocation: { color: '#666', fontSize: 13 },
+  summaryMeta: { color: '#777', fontSize: 13 },
+  nextAction: { color: '#333', fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  attentionStatus: { backgroundColor: '#fff3df', color: '#865208' },
+  progressStatus: { backgroundColor: '#edf4eb', color: '#426341' },
+  detailsToggle: { alignItems: 'center', borderTopColor: '#eee', borderTopWidth: 1,
+    flexDirection: 'row', justifyContent: 'space-between', marginTop: 2, minHeight: 42, paddingTop: 7 },
+  detailsToggleText: { color: '#a43434', fontSize: 14, fontWeight: '700' },
+  detailsChevron: { color: '#a43434', fontSize: 22, fontWeight: '500' },
+  emptyState: { alignItems: 'flex-start', backgroundColor: '#fafafa', borderRadius: 12, gap: 8, padding: 16 },
+  emptyTitle: { color: '#333', fontSize: 17, fontWeight: '700' },
   cardHeading: { alignItems: 'flex-start', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
   cardTitle: { color: '#222', flex: 1, fontSize: 17, fontWeight: '700' },
   status: { backgroundColor: '#edf4eb', borderRadius: 12, color: '#426341', fontSize: 12, overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 4 },
@@ -597,6 +772,7 @@ const styles = StyleSheet.create({
   quoteHeading: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
   quotePrice: { color: '#333', fontSize: 17, fontWeight: '700' },
   quoteActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  quoteConfirmation: { width: '100%', gap: 8, borderTopColor: '#eee', borderTopWidth: 1, paddingTop: 8 },
   paymentInfo: { borderTopColor: '#eee', borderTopWidth: 1, gap: 6, marginTop: 4, paddingTop: 8 },
   paymentConfirmation: { borderTopColor: '#eee', borderTopWidth: 1, gap: 4, paddingTop: 6 },
   cancellationReason: { minHeight: 80, borderColor: '#ccc', borderRadius: 8, borderWidth: 1,

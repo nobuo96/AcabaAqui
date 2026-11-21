@@ -25,13 +25,24 @@ export function ScrollAreaView({
   return (
     <KeyboardAvoidingView
       style={[styles.container, style]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
       keyboardVerticalOffset={keyboardVerticalOffset}
     >
       <ScrollView
         {...scrollViewProps}
         style={styles.scrollView}
         keyboardShouldPersistTaps={scrollViewProps.keyboardShouldPersistTaps ?? 'handled'}
+        keyboardDismissMode={scrollViewProps.keyboardDismissMode ?? (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
+        automaticallyAdjustKeyboardInsets={
+          scrollViewProps.automaticallyAdjustKeyboardInsets ?? (Platform.OS === 'ios')
+        }
+        automaticallyAdjustsScrollIndicatorInsets={
+          scrollViewProps.automaticallyAdjustsScrollIndicatorInsets ?? (Platform.OS === 'ios')
+        }
+        contentInsetAdjustmentBehavior={
+          scrollViewProps.contentInsetAdjustmentBehavior ?? 'automatic'
+        }
+        showsVerticalScrollIndicator={scrollViewProps.showsVerticalScrollIndicator ?? true}
       >
         {children}
       </ScrollView>
@@ -46,5 +57,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    paddingBottom: 24,
   },
 });

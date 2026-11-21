@@ -7,6 +7,8 @@ import { ScrollAreaView } from '@/components/ScrollAreaView';
 import { Text } from '@/components/Themed';
 import { servicePayoutApi, type ServicePayout } from '@/lib/communicationApi';
 
+type PayoutFilter = 'pendentes' | 'concluidos' | 'todos';
+
 export function AdminPayoutsScreen() {
   const [payouts, setPayouts] = useState<ServicePayout[]>([]);
   const [selected, setSelected] = useState<ServicePayout | null>(null);
@@ -16,6 +18,7 @@ export function AdminPayoutsScreen() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState<PayoutFilter>('pendentes');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,6 +93,14 @@ export function AdminPayoutsScreen() {
     }
   }
 
+  const pendingCount = payouts.filter((payout) => payout.status === 'PENDENTE').length;
+  const completedCount = payouts.length - pendingCount;
+  const visiblePayouts = payouts.filter((payout) => {
+    if (filter === 'pendentes') return payout.status === 'PENDENTE';
+    if (filter === 'concluidos') return payout.status !== 'PENDENTE';
+    return true;
+  });
+
   return (
     <View style={styles.container}>
       <AcabaAquiHeader title="Repasses Pix" />
@@ -98,12 +109,23 @@ export function AdminPayoutsScreen() {
           Repasse manual pelo saldo da plataforma. A pendência é criada após aprovação ou ao fim dos 7 dias sem ação/disputa;
           o prazo operacional é de até 7 dias úteis.
         </Text>
+        <View style={styles.filters}>
+          <PayoutFilterButton label={`Pendentes · ${pendingCount}`} selected={filter === 'pendentes'}
+            onPress={() => { setFilter('pendentes'); setSelected(null); }} />
+          <PayoutFilterButton label={`Concluídos · ${completedCount}`} selected={filter === 'concluidos'}
+            onPress={() => { setFilter('concluidos'); setSelected(null); }} />
+          <PayoutFilterButton label={`Todos · ${payouts.length}`} selected={filter === 'todos'}
+            onPress={() => { setFilter('todos'); setSelected(null); }} />
+        </View>
         {loading ? <Text style={styles.muted}>Carregando repasses...</Text> : null}
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-        {!loading && payouts.length === 0
-          ? <Text style={styles.muted}>Não há repasses registrados.</Text>
+        {!loading && visiblePayouts.length === 0
+          ? <Text style={styles.muted}>
+              {filter === 'pendentes' ? 'Nenhum repasse pendente para processar.'
+                : filter === 'concluidos' ? 'Nenhum repasse concluído ainda.' : 'Não há repasses registrados.'}
+            </Text>
           : null}
-        {payouts.map((payout) => (
+        {visiblePayouts.map((payout) => (
           <View key={payout.id} style={styles.card}>
             <View style={styles.heading}>
               <Text style={styles.title}>{payout.serviceName}</Text>
@@ -238,6 +260,23 @@ function PayoutDetails({
   );
 }
 
+function PayoutFilterButton({ label, selected, onPress }: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.filter, selected && styles.selectedFilter]}
+    >
+      <Text style={[styles.filterText, selected && styles.selectedFilterText]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function reasonLabel(reason: ServicePayout['reason']) {
   return reason === 'APROVACAO_CLIENTE' ? 'Aprovação do cliente' : 'Fim do prazo de 7 dias';
 }
@@ -278,6 +317,12 @@ function formatDate(value: string) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f6f6f6' },
   content: { padding: 16, paddingBottom: 32, gap: 12 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filter: { backgroundColor: '#eee', borderRadius: 20, minHeight: 40,
+    justifyContent: 'center', paddingHorizontal: 13, paddingVertical: 8 },
+  selectedFilter: { backgroundColor: '#a43434' },
+  filterText: { color: '#444', fontWeight: '600' },
+  selectedFilterText: { color: '#fff' },
   intro: { color: '#444', fontSize: 14, lineHeight: 20 },
   muted: { color: '#666', fontSize: 14 },
   error: { color: '#a43434', fontSize: 14, lineHeight: 20 },
