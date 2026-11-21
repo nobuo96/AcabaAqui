@@ -57,6 +57,9 @@ public class ServiceExecutionService {
     @Inject
     ServicePayoutService payoutService;
 
+    @Inject
+    ServiceWarrantyService warrantyService;
+
     @Transactional
     public List<ExecutionResponse> listar(Integer userId, boolean provider) {
         List<ServiceExecution> executions = provider
@@ -139,6 +142,7 @@ public class ServiceExecutionService {
         if (!payoutService.enfileirarAposAprovacao(quoteId)) {
             throw conflict("Não foi possível criar a pendência de repasse deste serviço.");
         }
+        warrantyService.ativar(execution, now);
         notificationService.criar(
                 locked.quote().getPrestador(),
                 locked.request(),

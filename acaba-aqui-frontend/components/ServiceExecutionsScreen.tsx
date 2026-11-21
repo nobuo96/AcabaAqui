@@ -10,9 +10,11 @@ import { Text } from '@/components/Themed';
 import {
   serviceDisputeApi,
   serviceExecutionApi,
+  serviceWarrantyApi,
   type ServiceDispute,
   type ServiceDisputeEvidence,
   type ServiceExecution,
+  type ServiceWarranty,
 } from '@/lib/communicationApi';
 import { getAuthUserId } from '@/lib/authToken';
 import { openDisputeEvidence } from '@/lib/openDisputeEvidence';
@@ -25,9 +27,12 @@ export function ServiceExecutionsScreen({ role }: Props) {
   const [executions, setExecutions] = useState<ServiceExecution[]>([]);
   const [selected, setSelected] = useState<ServiceExecution | null>(null);
   const [dispute, setDispute] = useState<ServiceDispute | null>(null);
+  const [warranty, setWarranty] = useState<ServiceWarranty | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
+  const [warrantyReason, setWarrantyReason] = useState('');
   const [disputeWorking, setDisputeWorking] = useState(false);
+  const [warrantyWorking, setWarrantyWorking] = useState(false);
   const [evidenceWorking, setEvidenceWorking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -62,18 +67,22 @@ export function ServiceExecutionsScreen({ role }: Props) {
     if (selected?.quoteId === quoteId) {
       setSelected(null);
       setDispute(null);
+      setWarranty(null);
       return;
     }
     setLoadingDetail(true);
     setError('');
     try {
-      const [execution, currentDispute] = await Promise.all([
+      const [execution, currentDispute, currentWarranty] = await Promise.all([
         serviceExecutionApi.get(quoteId),
         serviceDisputeApi.getForQuote(quoteId),
+        serviceWarrantyApi.getForQuote(quoteId),
       ]);
       setSelected(execution);
       setDispute(currentDispute);
+      setWarranty(currentWarranty);
       setDisputeReason('');
+      setWarrantyReason('');
     } catch (detailError) {
       setError(detailError instanceof Error ? detailError.message : 'Não foi possível carregar os detalhes.');
     } finally {
@@ -98,6 +107,39 @@ export function ServiceExecutionsScreen({ role }: Props) {
       setError(openError instanceof Error ? openError.message : 'Não foi possível abrir a disputa.');
     } finally {
       setDisputeWorking(false);
+    }
+  }
+
+  async function openWarranty(execution: ServiceExecution) {
+    if (warrantyWorking || !warrantyReason.trim()) {
+      setError('Descreva o problema encontrado.');
+      return;
+    }
+    setWarrantyWorking(true);
+    setError('');
+    try {
+      setWarranty(await serviceWarrantyApi.open(execution.quoteId, warrantyReason.trim()));
+      setWarrantyReason('');
+    } catch (openError) {
+      setError(openError instanceof Error ? openError.message : 'Não foi possível abrir o chamado de garantia.');
+    } finally {
+      setWarrantyWorking(false);
+    }
+  }
+
+  async function updateWarranty(action: 'corrected' | 'resolve') {
+    if (!warranty || warrantyWorking) return;
+    setWarrantyWorking(true);
+    setError('');
+    try {
+      const updated = action === 'corrected'
+        ? await serviceWarrantyApi.markCorrected(warranty.id)
+        : await serviceWarrantyApi.resolve(warranty.id);
+      setWarranty(updated);
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Não foi possível atualizar a garantia.');
+    } finally {
+      setWarrantyWorking(false);
     }
   }
 
@@ -227,12 +269,19 @@ export function ServiceExecutionsScreen({ role }: Props) {
                 execution={selected}
                 role={role}
                 dispute={dispute}
+                warranty={warranty}
                 userId={userId}
                 disputeReason={disputeReason}
+                warrantyReason={warrantyReason}
                 disputeWorking={disputeWorking}
+                warrantyWorking={warrantyWorking}
                 evidenceWorking={evidenceWorking}
                 onDisputeReasonChange={setDisputeReason}
                 onOpenDispute={() => { void openDispute(execution); }}
+                onWarrantyReasonChange={setWarrantyReason}
+                onOpenWarranty={() => { void openWarranty(execution); }}
+                onCorrectWarranty={() => { void updateWarranty('corrected'); }}
+                onResolveWarranty={() => { void updateWarranty('resolve'); }}
                 onAttachEvidence={() => { if (dispute) void attachEvidence(dispute); }}
                 onOpenEvidence={(evidence) => {
                   if (dispute) {
@@ -284,23 +333,37 @@ function ExecutionDetails({
   execution,
   role,
   dispute,
+  warranty,
   userId,
   disputeReason,
+  warrantyReason,
   disputeWorking,
+  warrantyWorking,
   evidenceWorking,
   onDisputeReasonChange,
   onOpenDispute,
+  onWarrantyReasonChange,
+  onOpenWarranty,
+  onCorrectWarranty,
+  onResolveWarranty,
   onAttachEvidence,
   onOpenEvidence,
 }: Props & {
   execution: ServiceExecution;
   dispute: ServiceDispute | null;
+  warranty: ServiceWarranty | null;
   userId: string | null;
   disputeReason: string;
+  warrantyReason: string;
   disputeWorking: boolean;
+  warrantyWorking: boolean;
   evidenceWorking: boolean;
   onDisputeReasonChange: (value: string) => void;
   onOpenDispute: () => void;
+  onWarrantyReasonChange: (value: string) => void;
+  onOpenWarranty: () => void;
+  onCorrectWarranty: () => void;
+  onResolveWarranty: () => void;
   onAttachEvidence: () => void;
   onOpenEvidence: (evidence: ServiceDisputeEvidence) => void;
 }) {
@@ -316,6 +379,22 @@ function ExecutionDetails({
     && dispute.evidenceDeadline !== null
     && Date.now() <= new Date(dispute.evidenceDeadline).getTime()
     && ownEvidenceCount < 10;
+  const canOpenWarranty = role === 'cliente'
+    && warranty !== null
+    && warranty.status === 'ATIVA'
+    && Date.now() >= new Date(warranty.startsAt).getTime()
+    && Date.now() <= new Date(warranty.endsAt).getTime();
+  const canResolveWarranty = role === 'cliente'
+    && warranty !== null
+    && (warranty.status === 'CORRIGIDA'
+      || (warranty.status === 'ACIONADA'
+        && warranty.correctionDeadline !== null
+        && Date.now() < new Date(warranty.correctionDeadline).getTime()));
+  const canReportCorrection = role === 'prestador'
+    && warranty !== null
+    && warranty.status === 'ACIONADA'
+    && warranty.correctionDeadline !== null
+    && Date.now() < new Date(warranty.correctionDeadline).getTime();
 
   return (
     <View style={styles.details}>
@@ -330,6 +409,78 @@ function ExecutionDetails({
         </>
       ) : null}
       {execution.approvedAt ? <Text style={styles.detail}>Aprovado: {formatDate(execution.approvedAt)}</Text> : null}
+      <View style={styles.warrantyBox}>
+        <Text style={styles.historyHeading}>Garantia</Text>
+        {warranty ? (
+          <>
+            <Text style={styles.detail}>
+              {warranty.warrantyDays} dias corridos · válida até {formatDate(warranty.endsAt)}
+            </Text>
+            <Text style={styles.detail}>
+              Status: {warrantyStatusLabel(warranty.status, warranty.endsAt)}
+            </Text>
+            {warranty.reason ? <Text style={styles.detail}>Chamado: {warranty.reason}</Text> : null}
+            {warranty.correctionDeadline && warranty.status === 'ACIONADA' ? (
+              <Text style={styles.deadline}>
+                Prazo para correção: {formatDate(warranty.correctionDeadline)}
+              </Text>
+            ) : null}
+            {warranty.status === 'ATIVA' && role === 'cliente' ? (
+              <View style={styles.disputeBox}>
+                <Text style={styles.muted}>
+                  Se encontrar um problema durante o prazo da garantia, abra um chamado. O prestador terá 7 dias corridos para corrigir.
+                </Text>
+                <TextInput
+                  style={[styles.input, styles.multilineInput]}
+                  value={warrantyReason}
+                  onChangeText={onWarrantyReasonChange}
+                  maxLength={1000}
+                  multiline
+                  textAlignVertical="top"
+                  placeholder="Descreva o problema encontrado"
+                />
+                <ActionButton
+                  label={warrantyWorking ? 'Abrindo chamado...' : 'Abrir chamado de garantia'}
+                  disabled={warrantyWorking || !warrantyReason.trim()}
+                  onPress={onOpenWarranty}
+                />
+              </View>
+            ) : null}
+            {canReportCorrection ? (
+              <ActionButton
+                label={warrantyWorking ? 'Atualizando...' : 'Marcar correção realizada'}
+                disabled={warrantyWorking}
+                onPress={onCorrectWarranty}
+              />
+            ) : null}
+            {warranty.status === 'CORRIGIDA' && role === 'prestador' ? (
+              <Text style={styles.muted}>Aguardando o cliente confirmar a resolução.</Text>
+            ) : null}
+            {canResolveWarranty ? (
+              <ActionButton
+                label={warrantyWorking ? 'Atualizando...' : 'Marcar como resolvido'}
+                disabled={warrantyWorking}
+                onPress={onResolveWarranty}
+              />
+            ) : null}
+            {warranty.status === 'REEMBOLSO_PENDENTE' ? (
+              <Text style={styles.paymentWarning}>
+                O prazo de correção terminou. A plataforma está processando o reembolso integral.
+              </Text>
+            ) : null}
+            {warranty.status === 'REEMBOLSADA' ? (
+              <Text style={styles.paymentWarning}>O reembolso integral foi confirmado pelo Mercado Pago.</Text>
+            ) : null}
+            {warranty.status === 'FALHA_REEMBOLSO' ? (
+              <Text style={styles.paymentWarning}>
+                O Mercado Pago confirmou reembolso parcial. A equipe da plataforma precisa analisar o caso.
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          <Text style={styles.muted}>Este orçamento não possui garantia ativa.</Text>
+        )}
+      </View>
       {canOpenDispute ? (
         <View style={styles.disputeBox}>
           <Text style={styles.historyHeading}>Contestar serviço</Text>
@@ -461,6 +612,19 @@ function disputeDecisionLabel(decision: ServiceDispute['decision']) {
   return decision === 'REEMBOLSAR_CLIENTE' ? 'Reembolsar cliente' : 'Pagar prestador';
 }
 
+function warrantyStatusLabel(status: ServiceWarranty['status'], endsAt: string) {
+  if (status === 'ATIVA' && Date.now() > new Date(endsAt).getTime()) return 'Expirada';
+  switch (status) {
+    case 'ATIVA': return 'Ativa';
+    case 'ACIONADA': return 'Aguardando correção';
+    case 'CORRIGIDA': return 'Correção informada';
+    case 'RESOLVIDA': return 'Resolvida';
+    case 'REEMBOLSO_PENDENTE': return 'Reembolso em processamento';
+    case 'REEMBOLSADA': return 'Reembolsada';
+    case 'FALHA_REEMBOLSO': return 'Reembolso parcial — análise necessária';
+  }
+}
+
 function formatDate(value: string) {
   return new Date(value).toLocaleString('pt-BR');
 }
@@ -480,6 +644,7 @@ const styles = StyleSheet.create({
   detailButton: { alignSelf: 'flex-start', paddingVertical: 6 },
   detailButtonText: { color: '#a43434', fontWeight: '600' },
   details: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 10, gap: 8 },
+  warrantyBox: { backgroundColor: '#f5f8f2', borderRadius: 9, padding: 12, gap: 8 },
   disputeBox: { backgroundColor: '#faf5f5', borderRadius: 9, padding: 12, gap: 8 },
   evidenceRow: { backgroundColor: '#fff', borderRadius: 8, padding: 10, gap: 4 },
   evidenceName: { color: '#a43434', fontSize: 14, fontWeight: '700' },

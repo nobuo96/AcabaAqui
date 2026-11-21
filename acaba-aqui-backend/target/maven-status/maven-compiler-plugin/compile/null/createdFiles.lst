@@ -1,0 +1,11 @@
+com\acabaaqui\resources\ServiceWarrantyResource$ResponseSupplier.class
+com\acabaaqui\resources\ServiceWarrantyResource.class
+com\acabaaqui\services\ServiceWarrantyJob.class
+com\acabaaqui\services\ServiceWarrantyService$WarrantyResponse.class
+com\acabaaqui\services\ServiceWarrantyService.class
+com\acabaaqui\persistence\ServiceWarrantyRepository.class
+com\acabaaqui\resources\ServiceWarrantyResource$OpenWarrantyRequest.class
+com\acabaaqui\services\ServiceWarrantyPolicy.class
+com\acabaaqui\resources\ServiceWarrantyResource$ErrorResponse.class
+com\acabaaqui\model\ServiceWarrantyStatus.class
+com\acabaaqui\model\ServiceWarranty.class

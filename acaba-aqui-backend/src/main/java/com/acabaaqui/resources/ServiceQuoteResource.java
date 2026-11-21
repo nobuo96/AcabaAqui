@@ -37,7 +37,7 @@ public class ServiceQuoteResource {
         try {
             ServiceQuote quote = service.enviar(providerId, requestId,
                     request == null ? null : new ServiceQuoteService.QuoteSubmission(
-                            request.descricao(), request.valorTotal()));
+                            request.descricao(), request.valorTotal(), request.garantiaDias()));
             return quote == null ? Response.status(Response.Status.NOT_FOUND).build()
                     : Response.status(Response.Status.CREATED).entity(toResponse(quote)).build();
         } catch (IllegalArgumentException exception) {
@@ -127,12 +127,13 @@ public class ServiceQuoteResource {
                 quote.getPrestador().getNome(),
                 quote.getDescricao(),
                 quote.getValorTotal(),
+                quote.getGarantiaDias(),
                 quote.getStatus().name(),
                 quote.getDataCriacao(),
                 quote.getExpiraEm());
     }
 
-    public record QuoteSubmission(String descricao, BigDecimal valorTotal) { }
+    public record QuoteSubmission(String descricao, BigDecimal valorTotal, int garantiaDias) { }
     public record QuoteResponse(
             Long id,
             Long solicitacaoId,
@@ -140,6 +141,7 @@ public class ServiceQuoteResource {
             String prestadorNome,
             String descricao,
             BigDecimal valorTotal,
+            int garantiaDias,
             String status,
             LocalDateTime dataCriacao,
             LocalDateTime expiraEm) { }

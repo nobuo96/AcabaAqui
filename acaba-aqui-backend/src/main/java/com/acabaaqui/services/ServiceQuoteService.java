@@ -80,6 +80,7 @@ public class ServiceQuoteService {
         quote.setPrestador(provider);
         quote.setDescricao(validated.descricao());
         quote.setValorTotal(validated.valorTotal());
+        quote.setGarantiaDias(validated.garantiaDias());
         quote.setExpiraEm(LocalDateTime.now().plusDays(VALIDITY_DAYS));
         quoteRepository.persist(quote);
         lifecycleStatusService.registrarTransicao(
@@ -316,10 +317,11 @@ public class ServiceQuoteService {
 
     private QuoteSubmission validar(QuoteSubmission submission) {
         if (submission == null || submission.descricao() == null || submission.valorTotal() == null) {
-            throw new IllegalArgumentException("Informe a descrição e o valor total do orçamento.");
+            throw new IllegalArgumentException("Informe a descrição, o valor total e a duração da garantia.");
         }
         String description = submission.descricao().trim();
         BigDecimal value = submission.valorTotal();
+        int warrantyDays = submission.garantiaDias();
         if (description.isEmpty() || description.length() > 2000) {
             throw new IllegalArgumentException("A descrição deve ter entre 1 e 2000 caracteres.");
         }
@@ -328,8 +330,18 @@ public class ServiceQuoteService {
                 || value.setScale(2).precision() > 12) {
             throw new IllegalArgumentException("Informe um valor positivo com até 2 casas decimais.");
         }
-        return new QuoteSubmission(description, value.setScale(2));
+        if (warrantyDays <= 0) {
+            throw new IllegalArgumentException("Informe a duração da garantia em dias inteiros positivos.");
+        }
+        try {
+            if (LocalDateTime.now().plusDays(warrantyDays).getYear() > 9999) {
+                throw new IllegalArgumentException("A duração da garantia excede o limite suportado.");
+            }
+        } catch (java.time.DateTimeException exception) {
+            throw new IllegalArgumentException("A duração da garantia excede o limite suportado.");
+        }
+        return new QuoteSubmission(description, value.setScale(2), warrantyDays);
     }
 
-    public record QuoteSubmission(String descricao, BigDecimal valorTotal) { }
+    public record QuoteSubmission(String descricao, BigDecimal valorTotal, int garantiaDias) { }
 }

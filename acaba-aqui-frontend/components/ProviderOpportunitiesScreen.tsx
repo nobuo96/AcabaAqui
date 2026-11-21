@@ -24,6 +24,7 @@ export function ProviderOpportunitiesScreen() {
   const [providerId, setProviderId] = useState<number | null>(null);
   const [quoteDescriptions, setQuoteDescriptions] = useState<Record<number, string>>({});
   const [quoteAmounts, setQuoteAmounts] = useState<Record<number, string>>({});
+  const [quoteWarrantyDays, setQuoteWarrantyDays] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<number | null>(null);
   const [workingSlotId, setWorkingSlotId] = useState<number | null>(null);
@@ -119,8 +120,10 @@ export function ProviderOpportunitiesScreen() {
     if (sendingQuoteId !== null) return;
     const description = quoteDescriptions[item.solicitacaoId] ?? '';
     const parsedAmount = Number((quoteAmounts[item.solicitacaoId] ?? '').replace(',', '.'));
-    if (!description.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setError('Informe a descrição e um valor total maior que zero.');
+    const warrantyDays = Number(quoteWarrantyDays[item.solicitacaoId] ?? '');
+    if (!description.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0
+      || !Number.isInteger(warrantyDays) || warrantyDays <= 0) {
+      setError('Informe a descrição, o valor total e a garantia em dias inteiros positivos.');
       return;
     }
 
@@ -130,9 +133,11 @@ export function ProviderOpportunitiesScreen() {
       await serviceQuoteApi.send(item.solicitacaoId, {
         descricao: description.trim(),
         valorTotal: parsedAmount,
+        garantiaDias: warrantyDays,
       });
       setQuoteDescriptions((current) => ({ ...current, [item.solicitacaoId]: '' }));
       setQuoteAmounts((current) => ({ ...current, [item.solicitacaoId]: '' }));
+      setQuoteWarrantyDays((current) => ({ ...current, [item.solicitacaoId]: '' }));
       await load();
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : 'Não foi possível enviar o orçamento.');
@@ -229,6 +234,11 @@ export function ProviderOpportunitiesScreen() {
                       <View key={quote.id} style={styles.quoteCard}>
                         <Text style={styles.quotePrice}>{formatCurrency(quote.valorTotal)}</Text>
                         <Text style={styles.detail}>{quote.descricao}</Text>
+                        <Text style={styles.detail}>
+                          {quote.garantiaDias > 0
+                            ? `Garantia: ${quote.garantiaDias} dias corridos após a aprovação`
+                            : 'Garantia não configurada neste orçamento'}
+                        </Text>
                         <Text style={styles.slotStatus}>{quoteStatusLabel(quote.status)}</Text>
                         <Text style={styles.date}>Válido até {formatDate(quote.expiraEm)}</Text>
                       </View>
@@ -258,6 +268,16 @@ export function ProviderOpportunitiesScreen() {
                         }))}
                         keyboardType="decimal-pad"
                         placeholder="Valor total (R$)"
+                        style={styles.input}
+                      />
+                      <TextInput
+                        value={quoteWarrantyDays[item.solicitacaoId] ?? ''}
+                        onChangeText={(value) => setQuoteWarrantyDays((current) => ({
+                          ...current,
+                          [item.solicitacaoId]: value.replace(/[^0-9]/g, ''),
+                        }))}
+                        keyboardType="number-pad"
+                        placeholder="Garantia (dias corridos)"
                         style={styles.input}
                       />
                       <Pressable

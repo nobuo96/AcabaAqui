@@ -60,6 +60,9 @@ public class ServiceDisputeService {
     @Inject
     ServicePayoutService payoutService;
 
+    @Inject
+    ServiceWarrantyService warrantyService;
+
     @Transactional
     public List<DisputeResponse> listarParaAdministrador() {
         return disputeRepository.listarTodos().stream()
@@ -269,6 +272,7 @@ public class ServiceDisputeService {
             transicionarExecucao(execution, ServiceExecutionStatus.APROVADA,
                     LifecycleStatusTransitionPolicy.ADMINISTRADOR, administrator);
             execution.setAprovadoEm(now);
+            warrantyService.ativar(execution, now);
             encerrar(dispute, ServiceDisputeStatus.ENCERRADA_REPASSE,
                     decision, validatedReason, administrator, now);
             if (payment.getStatus() == PaymentStatus.PAGO

@@ -36,7 +36,7 @@ FLUSH PRIVILEGES;
 
 ## Configuração do Backend
 
-As alterações do banco são aplicadas por migrations SQL incrementais em `acaba-aqui-backend/src/main/resources/db/migration`; o Hibernate não cria/atualiza o schema automaticamente. Aplique manualmente `v4_lifecycle_status_history.sql` após `v1`–`v3`, depois `v5_visit_scheduling.sql`, `v6_service_quotes_and_notifications.sql`, `v7_payment_orders.sql`, `v8_service_cancellation.sql`, `v9_service_execution.sql`, `v10_manual_pix_payouts.sql` e `v11_service_disputes.sql`. Se o banco já tem a v10 aplicada, execute somente a v11 antes de iniciar o backend.
+As alterações do banco são aplicadas por migrations SQL incrementais em `acaba-aqui-backend/src/main/resources/db/migration`; o Hibernate não cria/atualiza o schema automaticamente. Aplique manualmente `v4_lifecycle_status_history.sql` após `v1`–`v3`, depois `v5_visit_scheduling.sql`, `v6_service_quotes_and_notifications.sql`, `v7_payment_orders.sql`, `v8_service_cancellation.sql`, `v9_service_execution.sql`, `v10_manual_pix_payouts.sql`, `v11_service_disputes.sql` e `v12_service_warranties.sql`. Se o banco já tem a v11 aplicada, execute somente a v12 antes de iniciar o backend.
 
 ### Variáveis obrigatórias
 
@@ -180,6 +180,16 @@ Rotas para as partes: `GET /disputes/quotes/{quoteId}` consulta a disputa; `POST
 Administradores usam `GET /disputes` e `GET /disputes/{disputeId}` para revisar o relato e as evidências; `POST /disputes/{disputeId}/decision` exige a decisão (`REEMBOLSAR_CLIENTE` ou `PAGAR_PRESTADOR`) e uma justificativa. Reembolso usa o Mercado Pago; liberar o prestador aprova o serviço e cria/libera a pendência de repasse. Se o Mercado Pago deixar o reembolso pendente, a disputa continua aberta e o administrador pode tentar novamente; ela só é encerrada após a confirmação integral. Uma pendência de repasse existente é cancelada após a confirmação do reembolso. Notificações internas são enviadas a ambas as partes ao abrir, ao iniciar o reembolso e ao encerrar a disputa.
 
 As tabelas de disputa/evidência são criadas por `acaba-aqui-backend/src/main/resources/db/migration/v11_service_disputes.sql`, que deve ser aplicada manualmente após v10.
+
+### Garantia
+
+Ao enviar um orçamento, o prestador informa a duração obrigatória da garantia em dias corridos. O cliente vê o prazo antes de aprovar; a vigência começa no instante da aprovação e termina após a duração definida no orçamento.
+
+Durante a vigência, o cliente abre um chamado em `POST /service-warranties/quotes/{quoteId}` com `reason`. O prestador é notificado e tem 7 dias corridos para marcar a correção em `POST /service-warranties/{warrantyId}/corrected`. O cliente pode encerrar o chamado como resolvido em `POST /service-warranties/{warrantyId}/resolve`. `GET /service-warranties/quotes/{quoteId}` retorna o período e o status para qualquer participante do serviço.
+
+Se o prazo terminar sem correção, uma tarefa a cada 15 minutos solicita o reembolso integral ao Mercado Pago. O repasse manual não é adiado: mesmo se o Pix ao prestador já foi registrado, a plataforma solicita o reembolso pelo pedido original e assume eventual falta de saldo. Enquanto o Mercado Pago não confirmar, o status permanece pendente e a tarefa tenta novamente com a mesma chave de idempotência. Reembolso parcial é sinalizado para análise da equipe.
+
+O histórico do domínio `GARANTIA` usa o identificador próprio da garantia como `entityId`. A migration `acaba-aqui-backend/src/main/resources/db/migration/v12_service_warranties.sql` adiciona o prazo aos orçamentos e cria a tabela de garantias; aplique-a manualmente após a v11.
 
 ### Configuração de e-mail
 

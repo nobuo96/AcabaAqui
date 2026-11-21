@@ -61,6 +61,7 @@ export interface ServiceQuote {
   prestadorNome: string;
   descricao: string;
   valorTotal: number;
+  garantiaDias: number;
   status: 'ENVIADO' | 'APROVADO' | 'RECUSADO' | 'EXPIRADO' | 'CANCELADO';
   dataCriacao: string;
   expiraEm: string;
@@ -164,6 +165,23 @@ export interface ServiceDispute {
 
 export type ServiceDisputeDecision = NonNullable<ServiceDispute['decision']>;
 
+export interface ServiceWarranty {
+  id: number;
+  quoteId: number;
+  warrantyDays: number;
+  status: 'ATIVA' | 'ACIONADA' | 'CORRIGIDA' | 'RESOLVIDA'
+    | 'REEMBOLSO_PENDENTE' | 'REEMBOLSADA' | 'FALHA_REEMBOLSO';
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+  openedAt: string | null;
+  correctionDeadline: string | null;
+  correctedAt: string | null;
+  resolvedAt: string | null;
+  refundedAt: string | null;
+  paymentStatus: ServicePayment['status'] | null;
+}
+
 async function request<T>(path: string, method = 'GET', body?: object): Promise<T> {
   const response = await apiFetch(path, {
     method,
@@ -231,7 +249,7 @@ export const visitSlotApi = {
 
 export const serviceQuoteApi = {
   list: (requestId: number) => request<ServiceQuote[]>(`/service-quotes/requests/${requestId}`),
-  send: (requestId: number, input: { descricao: string; valorTotal: number }) =>
+  send: (requestId: number, input: { descricao: string; valorTotal: number; garantiaDias: number }) =>
     request<ServiceQuote>(`/service-quotes/requests/${requestId}`, 'POST', input),
   approve: (quoteId: number) => request<ServiceQuote>(`/service-quotes/${quoteId}/approve`, 'POST'),
   reject: (quoteId: number) => request<ServiceQuote>(`/service-quotes/${quoteId}/reject`, 'POST'),
@@ -290,6 +308,21 @@ export const serviceDisputeApi = {
     await checkResponse(response);
     return response.blob();
   },
+};
+
+export const serviceWarrantyApi = {
+  getForQuote: async (quoteId: number) => {
+    const response = await apiFetch(`/service-warranties/quotes/${quoteId}`);
+    if (response.status === 204) return null;
+    await checkResponse(response);
+    return response.json() as Promise<ServiceWarranty>;
+  },
+  open: (quoteId: number, reason: string) =>
+    request<ServiceWarranty>(`/service-warranties/quotes/${quoteId}`, 'POST', { reason }),
+  markCorrected: (warrantyId: number) =>
+    request<ServiceWarranty>(`/service-warranties/${warrantyId}/corrected`, 'POST'),
+  resolve: (warrantyId: number) =>
+    request<ServiceWarranty>(`/service-warranties/${warrantyId}/resolve`, 'POST'),
 };
 
 export type PixKeyType = 'CPF' | 'CNPJ' | 'EMAIL' | 'TELEFONE' | 'ALEATORIA';

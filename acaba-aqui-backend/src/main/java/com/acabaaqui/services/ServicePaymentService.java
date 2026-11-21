@@ -227,6 +227,15 @@ public class ServicePaymentService {
 
     @Transactional
     public PaymentResponse reembolsar(Long paymentId, Integer adminId) {
+        return reembolsar(paymentId, adminId, false);
+    }
+
+    @Transactional
+    public PaymentResponse reembolsarPorGarantia(Long paymentId) {
+        return reembolsar(paymentId, null, true);
+    }
+
+    private PaymentResponse reembolsar(Long paymentId, Integer adminId, boolean warrantyRefund) {
         validarAccessToken();
         ServicePayment initialPayment = paymentRepository.buscarPorId(paymentId);
         if (initialPayment == null) {
@@ -240,9 +249,16 @@ public class ServicePaymentService {
         if (payment.getStatus() == PaymentStatus.REEMBOLSADO) {
             return toResponse(payment);
         }
+        if (payment.getStatus() == PaymentStatus.REEMBOLSADO_PARCIAL) {
+            if (warrantyRefund) {
+                return toResponse(payment);
+            }
+            throw conflict("O pagamento já tem um reembolso parcial e precisa de análise administrativa.");
+        }
         if (payment.getStatus() != PaymentStatus.PAGO
                 && payment.getStatus() != PaymentStatus.REPASSE_PENDENTE
-                && payment.getStatus() != PaymentStatus.REEMBOLSO_PENDENTE) {
+                && payment.getStatus() != PaymentStatus.REEMBOLSO_PENDENTE
+                && !(warrantyRefund && payment.getStatus() == PaymentStatus.REPASSADO)) {
             throw conflict("Somente pagamentos confirmados e ainda não reembolsados podem ser reembolsados.");
         }
         if (payment.getMercadoPagoOrderId() == null) {
@@ -250,15 +266,27 @@ public class ServicePaymentService {
         }
 
         if (payment.getStatus() == PaymentStatus.PAGO
-                || payment.getStatus() == PaymentStatus.REPASSE_PENDENTE) {
+                || payment.getStatus() == PaymentStatus.REPASSE_PENDENTE
+                || payment.getStatus() == PaymentStatus.REPASSADO) {
             alterarStatus(payment, PaymentStatus.REEMBOLSO_PENDENTE,
-                    LifecycleStatusTransitionPolicy.ADMINISTRADOR, buscarUsuario(adminId));
+                    warrantyRefund
+                            ? LifecycleStatusTransitionPolicy.SISTEMA
+                            : LifecycleStatusTransitionPolicy.ADMINISTRADOR,
+                    warrantyRefund ? null : buscarUsuario(adminId));
         }
-        MercadoPagoOrderGateway.OrderSnapshot snapshot = orderGateway.reembolsarPedido(
-                accessToken,
-                payment.getMercadoPagoOrderId(),
-                chaveDeterministica("refund-" + payment.getTentativa(), payment.getOrcamento().getId()));
-        aplicarEstadoPedido(payment, snapshot);
+        try {
+            MercadoPagoOrderGateway.OrderSnapshot snapshot = orderGateway.reembolsarPedido(
+                    accessToken,
+                    payment.getMercadoPagoOrderId(),
+                    chaveDeterministica("refund-" + payment.getTentativa(), payment.getOrcamento().getId()));
+            aplicarEstadoPedido(payment, snapshot);
+        } catch (WebApplicationException exception) {
+            if (!warrantyRefund) {
+                throw exception;
+            }
+            LOG.warnf("Warranty refund request for payment %d failed with HTTP status %d; it will be retried.",
+                    paymentId, exception.getResponse().getStatus());
+        }
         return toResponse(payment);
     }
 

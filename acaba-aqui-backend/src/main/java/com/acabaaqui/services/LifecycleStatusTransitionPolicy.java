@@ -90,10 +90,10 @@ public final class LifecycleStatusTransitionPolicy {
         allow(transitions, PAGAMENTO, "PAGO", "REPASSE_PENDENTE", SISTEMA);
         allow(transitions, PAGAMENTO, "REPASSE_PENDENTE", "REPASSADO", ADMINISTRADOR);
         allow(transitions, PAGAMENTO, "REPASSE_PENDENTE", "REEMBOLSO_PENDENTE",
-                ADMINISTRADOR, MERCADO_PAGO);
+                ADMINISTRADOR, MERCADO_PAGO, SISTEMA);
         allow(transitions, PAGAMENTO, "REPASSE_PENDENTE", "REEMBOLSADO_PARCIAL", MERCADO_PAGO);
         allow(transitions, PAGAMENTO, "REPASSE_PENDENTE", "CONTESTADO", MERCADO_PAGO);
-        allow(transitions, PAGAMENTO, "REPASSADO", "REEMBOLSO_PENDENTE", MERCADO_PAGO);
+        allow(transitions, PAGAMENTO, "REPASSADO", "REEMBOLSO_PENDENTE", MERCADO_PAGO, SISTEMA);
         allow(transitions, PAGAMENTO, "REPASSADO", "REEMBOLSADO_PARCIAL", MERCADO_PAGO);
         allow(transitions, PAGAMENTO, "REPASSADO", "CONTESTADO", MERCADO_PAGO);
 
@@ -113,7 +113,11 @@ public final class LifecycleStatusTransitionPolicy {
         allow(transitions, GARANTIA, null, "ATIVA", SISTEMA);
         allow(transitions, GARANTIA, "ATIVA", "ACIONADA", CLIENTE);
         allow(transitions, GARANTIA, "ACIONADA", "CORRIGIDA", PRESTADOR);
+        allow(transitions, GARANTIA, "ACIONADA", "RESOLVIDA", CLIENTE);
+        allow(transitions, GARANTIA, "CORRIGIDA", "RESOLVIDA", CLIENTE);
         allow(transitions, GARANTIA, "ACIONADA", "REEMBOLSO_PENDENTE", SISTEMA, ADMINISTRADOR);
+        allow(transitions, GARANTIA, "REEMBOLSO_PENDENTE", "REEMBOLSADA", MERCADO_PAGO, SISTEMA);
+        allow(transitions, GARANTIA, "REEMBOLSO_PENDENTE", "FALHA_REEMBOLSO", SISTEMA);
 
         return Map.copyOf(transitions);
     }

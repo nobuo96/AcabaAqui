@@ -39,6 +39,9 @@ public class ServiceQuote {
     @Column(name = "valor_total", nullable = false, precision = 12, scale = 2)
     private BigDecimal valorTotal;
 
+    @Column(name = "garantia_dias", nullable = false)
+    private int garantiaDias;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private ServiceQuoteStatus status = ServiceQuoteStatus.ENVIADO;
@@ -60,6 +63,8 @@ public class ServiceQuote {
     public void setDescricao(String descricao) { this.descricao = descricao; }
     public BigDecimal getValorTotal() { return valorTotal; }
     public void setValorTotal(BigDecimal valorTotal) { this.valorTotal = valorTotal; }
+    public int getGarantiaDias() { return garantiaDias; }
+    public void setGarantiaDias(int garantiaDias) { this.garantiaDias = garantiaDias; }
     public ServiceQuoteStatus getStatus() { return status; }
     public void setStatus(ServiceQuoteStatus status) { this.status = status; }
     public LocalDateTime getDataCriacao() { return dataCriacao; }

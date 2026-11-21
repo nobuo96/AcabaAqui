@@ -43,15 +43,18 @@ class ServiceQuoteServiceTest {
         RecordingHistory history = new RecordingHistory();
         ServiceQuoteService service = service(request, quotes, slots, opportunities, notifications, history);
 
+        assertThrows(IllegalArgumentException.class, () -> service.enviar(
+                provider.getId(), request.getId(), new ServiceQuoteService.QuoteSubmission(
+                        "Troca de torneira", new BigDecimal("125.50"), 0)));
         assertThrows(IllegalStateException.class, () -> service.enviar(
                 provider.getId(), request.getId(), new ServiceQuoteService.QuoteSubmission(
-                        "Troca de torneira", new BigDecimal("125.50"))));
+                        "Troca de torneira", new BigDecimal("125.50"), 30)));
 
         slots.records.add(slot(request, provider, VisitSlotStatus.CONFIRMADA,
                 LocalDateTime.now(ZoneOffset.UTC).plusHours(1)));
         assertThrows(IllegalStateException.class, () -> service.enviar(
                 provider.getId(), request.getId(), new ServiceQuoteService.QuoteSubmission(
-                        "Troca de torneira", new BigDecimal("125.50"))));
+                        "Troca de torneira", new BigDecimal("125.50"), 30)));
         slots.records.clear();
         VisitSlot completed = slot(request, provider, VisitSlotStatus.EXPIRADA,
                 LocalDateTime.now(ZoneOffset.UTC).minusHours(2));
@@ -60,10 +63,11 @@ class ServiceQuoteServiceTest {
         slots.records.add(completed);
         ServiceQuote quote = service.enviar(
                 provider.getId(), request.getId(), new ServiceQuoteService.QuoteSubmission(
-                        "  Troca de torneira  ", new BigDecimal("125.5")));
+                        "  Troca de torneira  ", new BigDecimal("125.5"), 30));
 
         assertEquals("Troca de torneira", quote.getDescricao());
         assertEquals(new BigDecimal("125.50"), quote.getValorTotal());
+        assertEquals(30, quote.getGarantiaDias());
         assertEquals(ServiceQuoteStatus.ENVIADO, quote.getStatus());
         assertTrue(quote.getExpiraEm().isAfter(LocalDateTime.now()));
         assertEquals(List.of("ORCAMENTO_ENVIADO"), notifications.types);
@@ -71,7 +75,7 @@ class ServiceQuoteServiceTest {
         assertEquals(1, history.transitions.size());
         assertThrows(IllegalStateException.class, () -> service.enviar(
                 provider.getId(), request.getId(), new ServiceQuoteService.QuoteSubmission(
-                        "Outro orçamento", new BigDecimal("200"))));
+                        "Outro orçamento", new BigDecimal("200"), 30)));
     }
 
     @Test
@@ -217,6 +221,7 @@ class ServiceQuoteServiceTest {
         quote.setPrestador(provider);
         quote.setDescricao("Serviço");
         quote.setValorTotal(new BigDecimal("100.00"));
+        quote.setGarantiaDias(30);
         quote.setStatus(status);
         quote.setExpiraEm(LocalDateTime.now().plusDays(1));
         return quote;

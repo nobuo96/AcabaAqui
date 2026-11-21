@@ -315,6 +315,11 @@ export default function SolicitacoesScreen() {
                     </View>
                     <Text style={styles.quotePrice}>{formatCurrency(quote.valorTotal)}</Text>
                     <Text style={styles.detail}>{quote.descricao}</Text>
+                    <Text style={styles.detail}>
+                      {quote.garantiaDias > 0
+                        ? `Garantia: ${quote.garantiaDias} dias corridos após a aprovação`
+                        : 'Garantia não configurada neste orçamento'}
+                    </Text>
                     <Text style={styles.date}>Enviado em {formatDate(quote.dataCriacao)}</Text>
                     {quote.status === 'ENVIADO' ? (
                       <>
